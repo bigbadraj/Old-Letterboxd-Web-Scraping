@@ -179,7 +179,7 @@ def update_github_file(filename, file_content):
     """
     try:
         # Initialize Github with your access token
-        g = Github("Your GitHub Access Token Here")
+        g = Github("Your Key Here")
         
         # Get the repository
         repo = g.get_repo("bigbadraj/Letterboxd-List-JSONs")
@@ -273,6 +273,23 @@ def main():
         {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-thriller-narrative/"},
         {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-war-narrative-feature/"},
         {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-western-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-100-g-rated-narrative-feature-films/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-pg-rated-narrative-feature-films/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-pg-13-rated-narrative-feature-films/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-r-rated-narrative-feature-films/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-20-nc-17-rated-narrative-feature-films/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-nr-rated-narrative-feature-films/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-north-american-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-south-american-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-south-american-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-european-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-100-highest-rated-african-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-asian-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-75-highest-rated-australian-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/the-top-250-highest-rated-films-of-90-minutes/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/the-top-250-highest-rated-films-of-120-minutes/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/the-top-150-highest-rated-films-of-180-minutes/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/the-top-20-highest-rated-films-of-240-minutes/"},
     ]
     
     expanded_lists_to_process = [
