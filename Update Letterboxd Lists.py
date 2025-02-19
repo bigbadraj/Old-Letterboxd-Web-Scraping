@@ -1,0 +1,556 @@
+import time
+import pandas as pd
+import logging
+import os
+import pyautogui
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import traceback
+import glob
+
+# Configure logging to only show the message after - INFO -
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+def update_letterboxd_lists():
+    # User credentials and file paths
+    username = "YOUR LETTERBOXD USERNAME"
+    password = "YOUR LETTERBOXD PASSOWRD"
+    output_csv_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs\update_results.csv"
+    base_folder_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs"
+
+    # Dictionary of lists to update
+    lists_to_update_easy = {
+        "top_250_action": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-action-narrative-feature/edit/",
+        "top_250_adventure": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-adventure-narrative/edit/",
+        "top_250_animation": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-animation-narrative/edit/",
+        "top_250_comedy": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-comedy-narrative-feature/edit/",
+        "top_250_crime": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-crime-narrative-feature/edit/",
+        "top_250_drama": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-drama-narrative-feature/edit/",
+        "top_250_family": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-family-narrative-feature/edit/",
+        "top_250_fantasy": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-fantasy-narrative-feature/edit/",
+        "top_250_history": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-history-narrative-feature/edit/",
+        "top_250_horror": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-horror-narrative-feature/edit/",
+        "top_250_music": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-music-narrative-feature/edit/",
+        "top_250_mystery": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-mystery-narrative-feature/edit/",
+        "top_250_romance": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-romance-narrative-feature/edit/",
+        "top_250_science-fiction": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-science-fiction-narrative/edit/",
+        "top_250_thriller": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-thriller-narrative/edit/",
+        "top_250_western": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-western-narrative-feature/edit/",
+        "top_250_war": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-war-narrative-feature/edit/",
+        "G_top_movies": "https://letterboxd.com/bigbadraj/list/top-100-g-rated-narrative-feature-films/edit/",
+        "PG_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-pg-rated-narrative-feature-films/edit/",
+        "PG-13_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-pg-13-rated-narrative-feature-films/edit/",
+        "R_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-r-rated-narrative-feature-films/edit/",
+        "NC-17_top_movies": "https://letterboxd.com/bigbadraj/list/top-20-nc-17-rated-narrative-feature-films/edit/",
+        "NR_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-nr-rated-narrative-feature-films/edit/",
+        "north_america_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-north-american-narrative/edit/",
+        "south_america_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-south-american-narrative/edit/",
+        "europe_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-european-narrative/edit/",
+        "asia_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-asian-narrative-feature/edit/",
+        "africa_top_movies": "https://letterboxd.com/bigbadraj/list/top-100-highest-rated-african-narrative-feature/edit/",
+        "oceania_top_movies": "https://letterboxd.com/bigbadraj/list/top-75-highest-rated-australian-narrative/edit/",
+        "90_Minutes_or_Less_top_movies": "https://letterboxd.com/bigbadraj/list/the-top-250-highest-rated-films-of-90-minutes/edit/",
+        "120_Minutes_or_Less_top_movies": "https://letterboxd.com/bigbadraj/list/the-top-250-highest-rated-films-of-120-minutes/edit/",
+        "180_Minutes_or_Greater_top_movies": "https://letterboxd.com/bigbadraj/list/the-top-150-highest-rated-films-of-180-minutes/edit/",
+        "240_Minutes_or_Greater_top_movies": "https://letterboxd.com/bigbadraj/list/the-top-20-highest-rated-films-of-240-minutes/edit/",
+    }
+
+    # Dictionary of lists to update with specific descriptions
+    lists_with_descriptions = {
+        "film_titles": {
+            "url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-things-on-letterboxd/edit/",
+            "description": "Minimum 1,000 reviews. Otherwise, anything on Letterboxd is eligible.\n\nLast Updated: {date}\n\n<a href=https://letterboxd.com/bigbadraj/list/the-official-list-index/> Check out more of the lists I update regularly! </a>"
+        },
+        "stand_up_comedy": {
+            "url": "https://letterboxd.com/bigbadraj/list/top-100-highest-rated-stand-up-comedy-specials/edit/",
+            "description": "Minimum 1,000 reviews.\n\nLast Updated: {date}\n\n<a href=https://letterboxd.com/bigbadraj/list/the-official-list-index/> Check out more of the lists I update regularly! </a>"
+        },
+        "box_office_real": {
+            "url": "https://letterboxd.com/bigbadraj/list/top-250-highest-grossing-movies-of-all-time-1/edit/",
+            "description": "According to Box Office Mojo.\n\nLast Updated: {date}\n\n<a href=https://letterboxd.com/bigbadraj/list/the-official-list-index/> Check out more of the lists I update regularly! </a>"
+        },
+        "box_office_inflated": {
+            "url": "https://letterboxd.com/bigbadraj/list/top-250-highest-grossing-domestic-movies/edit/",
+            "description": "According to Box Office Mojo.\n\nLast Updated: {date}\n\n<a href=https://letterboxd.com/bigbadraj/list/the-official-list-index/> Check out more of the lists I update regularly! </a>"
+        }
+    }
+
+    # Handle special lists
+    special_lists = {
+        "rating_filtered_movie_titles1": {
+            "url": "https://letterboxd.com/bigbadraj/list/top-2500-highest-rated-narrative-feature/edit/",
+            "csv_file_name_1": "rating_filtered_movie_titles1.csv",
+            "csv_file_name_2": "rating_filtered_movie_titles2.csv"
+        },
+        "popular_filtered_movie_titles1": {
+            "url": "https://letterboxd.com/bigbadraj/list/top-2500-most-popular-narrative-feature-films/edit/",
+            "csv_file_name_1": "popular_filtered_movie_titles1.csv",
+            "csv_file_name_2": "popular_filtered_movie_titles2.csv"
+        }
+    }
+
+    # Initialize the Firefox driver
+    driver = webdriver.Firefox()
+
+    try:
+        logging.info("✅ Navigating to Letterboxd homepage.")
+        driver.get("https://letterboxd.com/")
+        time.sleep(2)
+
+        logging.info("✅ Clicking on the 'Sign in' button.")
+        sign_in_button = driver.find_element(By.CSS_SELECTOR, ".sign-in-menu a")
+        sign_in_button.click()
+        time.sleep(1)
+
+        logging.info("✅ Entering username and password.")
+        driver.find_element(By.NAME, "username").send_keys(username)
+        driver.find_element(By.NAME, "password").send_keys(password)
+        driver.find_element(By.NAME, "password").send_keys(Keys.RETURN)
+        time.sleep(2)
+
+        # Loop through each list to update
+        results = []
+        for list_name, edit_url in lists_to_update_easy.items():
+            logging.info(f"✅ Updating list: {list_name}")
+            
+            # Initialize a flag to track errors
+            has_error = False
+
+            try:
+                # Navigate to the list edit page
+                driver.get(edit_url)
+                time.sleep(2)
+
+                # Step 1: Click the Import button
+                logging.info("✅ Clicking the Import button.")
+                import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
+                import_button.click()
+                time.sleep(2)
+
+                # Step 2: Select the correct CSV file
+                csv_file_name = f"{list_name}.csv"
+
+                logging.info(f"✅ Selecting CSV file: {csv_file_name}")
+                time.sleep(1)
+
+                # Use Alt + D to focus on the address bar of the file dialog
+                pyautogui.hotkey('alt', 'd')
+                time.sleep(1)
+
+                # Type the path to the Outputs folder
+                pyautogui.typewrite(r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs", interval=0.1)
+                pyautogui.press('enter')  # Navigate to the Outputs folder
+                time.sleep(1) 
+
+                # Click into the search field of the Outputs folder
+                pyautogui.click(x=300, y=200)  
+                time.sleep(1) 
+
+                # Select the correct CSV file
+                pyautogui.typewrite(csv_file_name, interval=0.1) 
+                time.sleep(1)  
+                pyautogui.press('enter')
+
+                time.sleep(2)  
+
+                # Step 3: Wait for 10 seconds and copy the associated txt file
+                txt_file_name = f"{list_name}.txt"  
+
+                # Attempt to find and copy the associated txt file
+                file_found = False
+                attempts = 0
+                max_attempts = 3
+
+                while not file_found and attempts < max_attempts:
+                    # Use glob to find files that include the list_name
+                    matching_files = glob.glob(os.path.join(base_folder_path, f"{list_name}*.txt"))
+
+                    if matching_files:
+                        # If it finds any matching files, read the first one (or handle as needed)
+                        with open(matching_files[0], 'r', encoding='utf-8') as txt_file:
+                            file_contents = txt_file.read()
+                        logging.info(f"✅ Copied contents from {matching_files[0]}.")
+                        file_found = True
+                    else:
+                        logging.warning(f"No matching text files found for {list_name}. Attempting again.")
+                        # Simulate typing the text file name to find it again
+                        pyautogui.click(x=300, y=200)
+                        time.sleep(1)
+                        pyautogui.typewrite(f"{list_name}*.txt", interval=0.1)  
+                        time.sleep(1)
+                        pyautogui.press('enter')
+
+                        time.sleep(1)  
+                        attempts += 1  
+
+                if not file_found:
+                    logging.error(f"❌ Failed to find any matching text files for {list_name} after {max_attempts} attempts.")
+                    has_error = True  
+
+                time.sleep(7 )  
+
+                # Step 4: Click the "Hide Successful Matches" button
+                try:
+                    hide_successful_matches_handle = driver.find_element(By.CSS_SELECTOR, ".import-toggle .handle")
+                    hide_successful_matches_handle.click()
+                    logging.info("✅ Clicked the 'Hide Successful Matches' handle.")
+                except Exception as e:
+                    logging.error(f"❌ Failed to click the handle: {str(e)}")
+
+                time.sleep(5)  
+
+                # Step 5: Click the "Replace existing list with imported films" checkbox
+                try:
+                    replace_substitute = driver.find_element(By.CSS_SELECTOR, "label[for='replace-original'] .substitute")
+                    replace_substitute.click()
+                    logging.info("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
+                except Exception as e:
+                    logging.error(f"❌ Failed to click the substitute icon: {str(e)}")
+
+                time.sleep(1)  
+
+                # Step 6: Click the "Add films to list" button
+                logging.info("✅ Clicking the 'Add films to list' button.")
+                add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
+                add_films_button.click()
+                time.sleep(5)  
+
+                # Step 7: Replace the existing list description with the copied text file contents
+                if 'file_contents' in locals():
+                    description_field = driver.find_element(By.CSS_SELECTOR, "textarea[name='notes']")  
+
+                    try:
+                        description_field.clear()  
+                        description_field.send_keys(file_contents)  
+                        logging.info("✅ Successfully added text using send_keys.")
+                    except Exception as e:
+                        logging.error(f"❌ Failed to add text using send_keys: {str(e)}")
+
+                # Step 8: Save the changes
+                time.sleep(1)
+                logging.info("✅ Saving the changes.")
+                driver.find_element(By.ID, "list-edit-save").click()
+                time.sleep(7)  
+
+                # Log success or failure based on the error flag
+                if has_error:
+                    results.append({
+                        'list_name': list_name,
+                        'status': 'Failed to update: Missing text file'
+                    })
+                else:
+                    results.append({
+                        'list_name': list_name,
+                        'status': 'Successfully updated'
+                    })
+                logging.info(f"✅ Successfully updated list: {list_name}")
+
+            except Exception as e:
+                logging.error(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
+                results.append({
+                    'list_name': list_name,
+                    'status': f'Failed to update: {str(e)}'
+                })
+                continue  
+
+        # Handle lists with specific descriptions
+        for list_name, details in lists_with_descriptions.items():
+            logging.info(f"✅ Updating list: {list_name}")
+
+            # Initialize a flag to track errors
+            has_error = False
+
+            try:
+                # Navigate to the list edit page
+                driver.get(details["url"])
+                time.sleep(2) 
+
+                # Step 1: Click the Import button
+                logging.info("✅ Clicking the Import button.")
+                import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
+                import_button.click()
+                time.sleep(2)  
+
+                # Step 2: Select the correct CSV file
+                csv_file_name = f"{list_name}.csv"  
+
+                logging.info(f"✅ Selecting CSV file: {csv_file_name}")
+                time.sleep(1) 
+
+                # Use Alt + D to focus on the address bar of the file dialog
+                pyautogui.hotkey('alt', 'd')
+                time.sleep(1) 
+
+                # Type the path to the Outputs folder
+                pyautogui.typewrite(r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs", interval=0.1)
+                pyautogui.press('enter')  
+                time.sleep(1)  
+
+                # Click into the search field of the Outputs folder
+                pyautogui.click(x=300, y=200)  
+                time.sleep(1) 
+
+                # Select the correct CSV file
+                pyautogui.typewrite(csv_file_name, interval=0.1) 
+                time.sleep(1) 
+                pyautogui.press('enter')  
+                time.sleep(30)  
+
+                # Step 4: Click the "Hide Successful Matches" button
+                try:
+                    hide_successful_matches_handle = driver.find_element(By.CSS_SELECTOR, ".import-toggle .handle")
+                    hide_successful_matches_handle.click()
+                    logging.info("✅ Clicked the 'Hide Successful Matches' handle.")
+                except Exception as e:
+                    logging.error(f"❌ Failed to click the handle: {str(e)}")
+
+                time.sleep(7)
+
+                # Step 5: Click the "Replace existing list with imported films" checkbox
+                try:
+                    replace_substitute = driver.find_element(By.CSS_SELECTOR, "label[for='replace-original'] .substitute")
+                    replace_substitute.click()
+                    logging.info("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
+                except Exception as e:
+                    logging.error(f"❌ Failed to click the substitute icon: {str(e)}")
+                    
+                time.sleep(1) 
+
+                # Step 6: Click the "Add films to list" button
+                logging.info("✅ Clicking the 'Add films to list' button.")
+                add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
+                add_films_button.click()
+                time.sleep(5)  
+
+                # Step 7: Replace the existing list description with the new description
+                current_date = time.strftime("%m/%d/%Y")  
+                description = details["description"].format(date=current_date)  
+
+                description_field = driver.find_element(By.CSS_SELECTOR, "textarea[name='notes']")  
+
+                try:
+                    description_field.clear()  
+                    description_field.send_keys(description) 
+                    logging.info("✅ Successfully added text using send_keys.")
+                except Exception as e:
+                    logging.error(f"❌ Failed to add text using send_keys: {str(e)}")
+
+                # Step 8: Save the changes
+                time.sleep(1)
+                logging.info("✅ Saving the changes.")
+                driver.find_element(By.ID, "list-edit-save").click()
+                time.sleep(7)  
+
+                # Log success or failure based on the error flag
+                if has_error:
+                    results.append({
+                        'list_name': list_name,
+                        'status': 'Failed to update: Missing text file'
+                    })
+                else:
+                    results.append({
+                        'list_name': list_name,
+                        'status': 'Successfully updated'
+                    })
+                logging.info(f"✅ Successfully updated list: {list_name}")
+
+            except Exception as e:
+                logging.error(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
+                results.append({
+                    'list_name': list_name,
+                    'status': f'Failed to update: {str(e)}'
+                })
+                continue  
+
+        # Handle special lists
+        for list_name, details in special_lists.items():
+            logging.info(f"✅ Updating special list: {list_name}")
+
+            try:
+                # Navigate to the list edit page
+                driver.get(details["url"])
+                time.sleep(2)  
+
+                # Step 1: Click the Import button
+                logging.info("✅ Clicking the Import button.")
+                import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
+                import_button.click()
+                time.sleep(2)  
+
+                # Step 2: Import the first CSV file
+                logging.info("✅ Importing the first CSV file.")
+                csv_file_name = details["csv_file_name_1"] 
+                logging.info(f"✅ Selecting CSV file: {csv_file_name}")
+                time.sleep(1)  
+
+                # Use Alt + D to focus on the address bar of the file dialog
+                pyautogui.hotkey('alt', 'd')
+                time.sleep(1) 
+
+                # Type the path to the Outputs folder
+                pyautogui.typewrite(r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs", interval=0.1)
+                pyautogui.press('enter')  
+                time.sleep(1)  
+
+                # Click into the search field of the Outputs folder
+                pyautogui.click(x=300, y=200)  
+                time.sleep(1)  
+
+                # Select the correct CSV file
+                pyautogui.typewrite(csv_file_name, interval=0.1) 
+                time.sleep(1)  
+                pyautogui.press('enter')  
+
+                time.sleep(60)  
+
+                # Attempt to find and copy the associated txt file
+                file_found = False
+                attempts = 0
+                max_attempts = 3  
+
+                while not file_found and attempts < max_attempts:
+                    # Use glob to find files that start with the first 15 characters of list_name and end with .txt
+                    matching_files = glob.glob(os.path.join(base_folder_path, f"{list_name[:15]}*.txt"))
+
+                    if matching_files:
+                        # If it finds matching files, read the first one (or handle as needed)
+                        with open(matching_files[0], 'r', encoding='utf-8') as txt_file:
+                            file_contents = txt_file.read()
+                        logging.info(f"✅ Copied contents from {matching_files[0]}.")
+                        file_found = True
+                    else:
+                        logging.warning(f"No matching text files found for {list_name}. Attempting again.")
+                        pyautogui.click(x=300, y=200)  
+                        time.sleep(1)  
+                        pyautogui.typewrite(f"{list_name[:15]}*.txt", interval=0.1) 
+                        time.sleep(1) 
+                        pyautogui.press('enter')  
+
+                        time.sleep(1)  
+                        attempts += 1  
+
+                # Step 3: Click the "Hide Successful Matches" button
+                try:
+                    hide_successful_matches_handle = driver.find_element(By.CSS_SELECTOR, ".import-toggle .handle")
+                    hide_successful_matches_handle.click()
+                    logging.info("✅ Clicked the 'Hide Successful Matches' handle.")
+                except Exception as e:
+                    logging.error(f"❌ Failed to click the handle: {str(e)}")
+
+                time.sleep(7)  
+                
+                # Step 4: Click the "Replace existing list with imported films" checkbox
+                try:
+                    replace_substitute = driver.find_element(By.CSS_SELECTOR, "label[for='replace-original'] .substitute")
+                    replace_substitute.click()
+                    logging.info("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
+                except Exception as e:
+                    logging.error(f"❌ Failed to click the substitute icon: {str(e)}")
+                
+                time.sleep(1)  
+
+                # Step 5: Click the "Add films to list" button
+                logging.info("✅ Clicking the 'Add films to list' button.")
+                add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
+                add_films_button.click()
+                time.sleep(5)  
+
+                # Step 6: Replace the existing list description with the copied text file contents
+                if 'file_contents' in locals():
+                    description_field = driver.find_element(By.CSS_SELECTOR, "textarea[name='notes']") 
+
+                    try:
+                        description_field.clear()  
+                        description_field.send_keys(file_contents) 
+                        logging.info("✅ Successfully added text using send_keys.")
+                    except Exception as e:
+                        logging.error(f"❌ Failed to add text using send_keys: {str(e)}")
+
+                # Step 7: Save the changes for the first import
+                time.sleep(15)
+                logging.info("✅ Saving the changes for the first import.");
+                driver.find_element(By.ID, "list-edit-save").click()
+                time.sleep(15)  
+
+                # Step 8: Click the Import button again
+                logging.info("✅ Clicking the Import button for the second time.")
+                import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
+                import_button.click()
+                time.sleep(2)  
+
+                # Step 9: Import the second CSV file
+                logging.info("✅ Importing the second CSV file.")
+                csv_file_name = details["csv_file_name_2"]  
+                logging.info(f"✅ Selecting CSV file: {csv_file_name}")
+                time.sleep(1)  
+
+                # Use Alt + D to focus on the address bar of the file dialog
+                pyautogui.hotkey('alt', 'd')
+                time.sleep(1)
+
+                # Type the path to the Outputs folder
+                pyautogui.typewrite(r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs", interval=0.1)
+                pyautogui.press('enter')  
+                time.sleep(1) 
+
+                # Click into the search field of the Outputs folder
+                pyautogui.click(x=300, y=200)  
+                time.sleep(1) 
+
+                # Select the correct CSV file
+                pyautogui.typewrite(csv_file_name, interval=0.1)
+                time.sleep(1)  
+                pyautogui.press('enter')  
+
+                time.sleep(30)  
+
+                # Step 10: Click the "Hide Successful Matches" button again
+                try:
+                    hide_successful_matches_handle = driver.find_element(By.CSS_SELECTOR, ".import-toggle .handle")
+                    hide_successful_matches_handle.click()
+                    logging.info("✅ Clicked the 'Hide Successful Matches' handle.")
+                except Exception as e:
+                    logging.error(f"❌ Failed to click the handle: {str(e)}")
+
+                time.sleep(7)
+
+                # Step 11: Click the "Add films to list" button again
+                logging.info("✅ Clicking the 'Add films to list' button.")
+                add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
+                add_films_button.click()
+                time.sleep(5)  
+
+                # Step 12: Save the changes for the second import
+                time.sleep(1)
+                logging.info("✅ Saving the changes for the second import.")
+                driver.find_element(By.ID, "list-edit-save").click()
+                time.sleep(15);  
+
+                logging.info(f"✅ Successfully updated special list: {list_name}")
+
+            except Exception as e:
+                logging.error(f"❌ Failed to update special list: {list_name}. Error: {str(e)}")
+                continue  
+
+    except Exception as e:
+        logging.error(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
+        logging.error(traceback.format_exc())  
+        results.append({
+            'list_name': list_name,
+            'status': f'Failed to update: {str(e)}'
+        })
+
+    finally:
+        # Output the results to a CSV file
+        logging.info("✅ Outputting results to CSV file.")
+        results_df = pd.DataFrame(results)
+        results_df.to_csv(output_csv_path, index=False, mode='a', header=not os.path.exists(output_csv_path)) 
+
+        # Close the browser
+        time.sleep(5)
+        logging.info("✅ Closing the browser.")
+        driver.quit()
+
+# Example usage
+update_letterboxd_lists()
