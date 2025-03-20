@@ -41,7 +41,7 @@ BLACKLIST_PATH = os.path.join(List_DIR, 'blacklist.csv')
 WHITELIST_PATH = os.path.join(List_DIR, 'whitelist.csv')
 
 # TMDb API key
-TMDB_API_KEY = 'INSERT TMDB API KEY HERE'
+TMDB_API_KEY = 'YOUR API KEY HERE'
 
 # Filtering criteria
 FILTER_KEYWORDS = {
@@ -116,7 +116,7 @@ class MovieProcessor:
             with open(BLACKLIST_PATH, mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 writer.writerow([film_title, release_year, reason])
-            print_to_csv(f"{film_title} ({release_year}) added to blacklist due to: {reason}")
+            print_to_csv(f"⚫ {film_title} ({release_year}) added to blacklist due to: {reason}")
 
     def is_whitelisted(self, film_title: str, release_year: str) -> bool:
         return any((film_title.lower() == str(row['Title']).lower() and 
@@ -247,28 +247,33 @@ class LetterboxdScraper:
                             print_to_csv(f"❌ {film_title} was not added due to insufficient ratings: {rating_count} ratings.")
                             continue
 
-                        # Check 2: Whitelist
+                        # Check 2: Runtime
+                        runtime = self.processor.extract_runtime(soup, film_title)
+                        if runtime == -1:  # Check for the specific value indicating no runtime
+                            continue  # Skip this movie and continue with the next
+                        if runtime < MIN_RUNTIME:
+                            rejection_reason = f"Due to a runtime of {runtime} minutes."
+                            print_to_csv(f"❌ {film_title} was not added {rejection_reason}")
+                            self.processor.add_to_blacklist(film_title, release_year, rejection_reason)
+                            continue  # Skip this movie and continue with the next
+
+                        # Check 3: Whitelist
                         if self.processor.is_whitelisted(film_title, release_year):
                             movie_identifier = (film_title.lower(), release_year)
                             if movie_identifier not in self.processor.added_movies:
                                 self.process_approved_movie(film_title, release_year, tmdb_id, soup, "whitelisted")
                                 continue
 
-                        # Check 3: Blacklist
+                        # Check 4: Blacklist
                         if self.processor.is_blacklisted(film_title, release_year):
                             print_to_csv(f"❌ {film_title} was not added due to being blacklisted.")
                             continue
 
-                        # Check 4: TMDB ID
+                        # Check 5: TMDB ID
                         if not tmdb_id:
                             print_to_csv(f"❌ {film_title} was not added due to missing TMDB ID.")
                             self.processor.unfiltered_denied.append([film_title, release_year, None])
                             continue
-
-                        # Check 5: Runtime
-                        runtime = self.processor.extract_runtime(soup, film_title)
-                        if runtime == -1:  # Check for the specific value indicating no runtime
-                            continue  # Skip this movie and continue with the next
 
                         # Check 6: Keywords and Genres
                         if tmdb_id:
@@ -413,12 +418,12 @@ class LetterboxdScraper:
             if not any(film_title.lower() == movie[0].lower() and release_year == movie[1] for movie in self.processor.unfiltered_approved):
                 self.processor.unfiltered_approved.append([film_title, release_year, tmdb_id])
                 
-    def save_results(self, genre):
+    def save_results(self, genre, sort_type):
         """Save all results to files"""
         # Save all movie data in a single DataFrame
         all_movies_df = pd.DataFrame(self.processor.film_data)
         all_movies_df = all_movies_df[['Title', 'Year', 'tmdbID']]
-        output_path = os.path.join(BASE_DIR, f'top_250_{genre}.csv')  # Save to a genre-specific file
+        output_path = os.path.join(BASE_DIR, f'top_250_{genre}_{sort_type}.csv')  # Save to a genre-specific file with sort type
         all_movies_df.to_csv(output_path, index=False, encoding='utf-8')
 
         # Save unfiltered approved data (append mode)
@@ -436,9 +441,9 @@ class LetterboxdScraper:
                 writer.writerow(movie + [f"{genre.capitalize()}"])  # Append genre as the fourth column
 
         # Save statistics
-        self.save_statistics(genre)  # Pass genre to save_statistics
+        self.save_statistics(genre, sort_type)  # Pass genre and sort_type to save_statistics
 
-    def save_statistics(self, genre):
+    def save_statistics(self, genre, sort_type):
         """Save statistics to text file"""
         def get_top_10(counts_dict):
             return sorted(counts_dict.items(), key=lambda item: item[1], reverse=True)[:11]  # Get top 11
@@ -453,7 +458,7 @@ class LetterboxdScraper:
         current_date = datetime.now()
         formatted_date = current_date.strftime('%B ') + get_ordinal(current_date.day) + f", {current_date.year}"
 
-        stats_path = os.path.join(BASE_DIR, f'top_250_{genre}.txt')  # Use genre in filename
+        stats_path = os.path.join(BASE_DIR, f'top_250_{genre}_{sort_type}.txt')  # Use genre and sort type in filename
         with open(stats_path, mode='w', encoding='utf-8') as file:
             # Change "Animation" to "Animated" and "Science-fiction" to "Science Fiction"
             formatted_header = genre.capitalize()
@@ -466,7 +471,10 @@ class LetterboxdScraper:
             if formatted_genre == "Science-fiction":
                 formatted_genre = "Science Fiction"
             
-            file.write(f"<strong>The Top 250 Highest Rated {formatted_header} Narrative Feature Films on Letterboxd, as defined by Letterboxd.</strong>\n\n")
+            if sort_type == "popular":
+                file.write(f"<strong>The Top {self.valid_movies_count} Most Popular {formatted_header} Narrative Feature Films on Letterboxd, as defined by Letterboxd.</strong>\n\n")
+            else:
+                file.write(f"<strong>The Top {self.valid_movies_count} Highest Rated {formatted_header} Narrative Feature Films on Letterboxd, as defined by Letterboxd.</strong>\n\n")
             file.write(f"<strong>Last updated: {formatted_date}</strong>\n\n")
             file.write("<a href=https://letterboxd.com/bigbadraj/list/the-official-list-index/> Check out more of the lists I update regularly! </a>\n\n")
             file.write("<strong>Film eligibility criteria:</strong>\n")
@@ -515,7 +523,7 @@ class LetterboxdScraper:
 
             file.write("<strong>Have a great day!</strong>")
 
-        print_to_csv(f"Top 10 statistics saved to {genre}_filtered_titles_stats.txt")  # Update print statement
+        print_to_csv(f"Top 10 statistics saved to {genre}_{sort_type}_filtered_titles_stats.txt")  # Update print statement
 
 def main():
     genres = ["action", "adventure", "animation", "comedy", "crime", "drama", "family", "fantasy", "history", "horror", "music", "mystery", "romance", "science-fiction", "thriller", "war", "western"]  # List of genres to iterate through
@@ -523,27 +531,28 @@ def main():
     start_time = time.time()
     
     for genre in genres:
-        try:
-            scraper = LetterboxdScraper()
-            scraper.base_url = f'https://letterboxd.com/films/genre/{genre}/by/rating/'  # Update base URL for the genre
-            scraper.scrape_movies()
-            scraper.save_results(genre)  # Pass genre to save_results
+        for sort_type in ["rating", "popular"]:  # Loop through both "rating" and "popular"
+            try:
+                scraper = LetterboxdScraper()
+                scraper.base_url = f'https://letterboxd.com/films/genre/{genre}/by/{sort_type}/'  # Update base URL for the genre and sort type
+                scraper.scrape_movies()
+                scraper.save_results(genre, sort_type)  # Pass genre and sort_type to save_results
 
-            # Format execution time
-            execution_time = time.time() - start_time
-            print_to_csv(f"\n{'Execution Summary':=^100}")
-            print_to_csv(f"Total execution time: {format_time(execution_time)}")
-            print_to_csv(f"Average processing speed: {scraper.valid_movies_count / execution_time:.2f} movies/second")
+                # Format execution time
+                execution_time = time.time() - start_time
+                print_to_csv(f"\n{'Execution Summary':=^100}")
+                print_to_csv(f"Total execution time: {format_time(execution_time)}")
+                print_to_csv(f"Average processing speed: {scraper.valid_movies_count / execution_time:.2f} movies/second")
 
-        except Exception as e:
-            print_to_csv(f"\n{'Error':=^100}")
-            print_to_csv(f"❌ An error occurred during execution: {e}")
-        finally:
-            if 'scraper' in locals():
-                try:
-                    scraper.driver.quit()
-                except:
-                    pass
+            except Exception as e:
+                print_to_csv(f"\n{'Error':=^100}")
+                print_to_csv(f"❌ An error occurred during execution: {e}")
+            finally:
+                if 'scraper' in locals():
+                    try:
+                        scraper.driver.quit()
+                    except:
+                        pass
 
 if __name__ == "__main__":
     main()

@@ -188,10 +188,10 @@ def update_github_file(filename, file_content):
     """
     try:
         # Initialize Github with your access token
-        g = Github("INSERT YOUR GITHUB API KEY HERE")
+        g = Github("YOUR ACCESS TOKEN HERE")
         
         # Get the repository
-        repo = g.get_repo("bigbadraj/Letterboxd-List-JSONs")
+        repo = g.get_repo("YOUR REPO HERE")
         
         # Get just the filename without path
         base_filename = os.path.basename(filename)
@@ -304,7 +304,39 @@ def main():
         {"url": "https://letterboxd.com/arhodes/list/most-expensive-films-unadjusted-for-inflation/"},
         {"url": "https://letterboxd.com/blackkfoxx/list/top-250-movies-by-unweighted-rating/"},
         {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-horror-narrative-feature/"},
-
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-action-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-adventure-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-animation-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-comedy-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-crime-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-drama-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-family-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-fantasy-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-history-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-horror-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-music-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-mystery-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-romance-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-science-fiction-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-thriller-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-western-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-war-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-200-most-popular-g-rated-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-pg-rated-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-pg-13-rated-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-r-rated-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-25-most-popular-nc-17-rated-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-nr-rated-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-north-american-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-100-most-popular-south-american-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-european-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-asian-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-20-most-popular-african-narrative-feature/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-150-most-popular-australian-narrative/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/the-top-250-most-popular-films-of-90-minutes/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/the-top-250-most-popular-films-of-120-minutes/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/the-top-75-most-popular-films-of-180-minutes/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/the-top-5-most-popular-films-of-240-minutes/"},
     ]
     
     # Calculate total films across all relevant lists

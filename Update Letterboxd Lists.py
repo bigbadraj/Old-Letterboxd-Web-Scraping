@@ -8,36 +8,44 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import traceback
 import glob
+import csv
 
 # Configure logging to only show the message after - INFO -
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
+def log_and_print(message: str):
+    """Logs a message and appends it to the output CSV file."""
+    logging.info(message)  # Log the message
+    with open('Outputs/All_Outputs.csv', mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow([message])  # Write the message as a new row
+
 def update_letterboxd_lists():
     # User credentials and file paths
-    username = "YOUR LETTERBOXD USERNAME"
-    password = "YOUR LETTERBOXD PASSOWRD"
+    username = "YOUR USERNAME HERE"
+    password = "YOUR PASSWORD HERE"
     output_csv_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs\update_results.csv"
     base_folder_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs"
 
     # Dictionary of lists to update
     lists_to_update_easy = {
-        "top_250_action": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-action-narrative-feature/edit/",
-        "top_250_adventure": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-adventure-narrative/edit/",
-        "top_250_animation": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-animation-narrative/edit/",
-        "top_250_comedy": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-comedy-narrative-feature/edit/",
-        "top_250_crime": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-crime-narrative-feature/edit/",
-        "top_250_drama": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-drama-narrative-feature/edit/",
-        "top_250_family": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-family-narrative-feature/edit/",
-        "top_250_fantasy": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-fantasy-narrative-feature/edit/",
-        "top_250_history": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-history-narrative-feature/edit/",
-        "top_250_horror": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-horror-narrative-feature/edit/",
-        "top_250_music": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-music-narrative-feature/edit/",
-        "top_250_mystery": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-mystery-narrative-feature/edit/",
-        "top_250_romance": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-romance-narrative-feature/edit/",
-        "top_250_science-fiction": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-science-fiction-narrative/edit/",
-        "top_250_thriller": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-thriller-narrative/edit/",
-        "top_250_western": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-western-narrative-feature/edit/",
-        "top_250_war": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-war-narrative-feature/edit/",
+        "top_250_action_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-action-narrative-feature/edit/",
+        "top_250_adventure_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-adventure-narrative/edit/",
+        "top_250_animation_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-animation-narrative/edit/",
+        "top_250_comedy_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-comedy-narrative-feature/edit/",
+        "top_250_crime_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-crime-narrative-feature/edit/",
+        "top_250_drama_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-drama-narrative-feature/edit/",
+        "top_250_family_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-family-narrative-feature/edit/",
+        "top_250_fantasy_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-fantasy-narrative-feature/edit/",
+        "top_250_history_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-history-narrative-feature/edit/",
+        "top_250_horror_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-horror-narrative-feature/edit/",
+        "top_250_music_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-music-narrative-feature/edit/",
+        "top_250_mystery_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-mystery-narrative-feature/edit/",
+        "top_250_romance_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-romance-narrative-feature/edit/",
+        "top_250_science-fiction_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-science-fiction-narrative/edit/",
+        "top_250_thriller_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-thriller-narrative/edit/",
+        "top_250_western_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-western-narrative-feature/edit/",
+        "top_250_war_rating": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-war-narrative-feature/edit/",
         "G_top_movies": "https://letterboxd.com/bigbadraj/list/top-100-g-rated-narrative-feature-films/edit/",
         "PG_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-pg-rated-narrative-feature-films/edit/",
         "PG-13_top_movies": "https://letterboxd.com/bigbadraj/list/top-250-pg-13-rated-narrative-feature-films/edit/",
@@ -54,6 +62,39 @@ def update_letterboxd_lists():
         "120_Minutes_or_Less_top_movies": "https://letterboxd.com/bigbadraj/list/the-top-250-highest-rated-films-of-120-minutes/edit/",
         "180_Minutes_or_Greater_top_movies": "https://letterboxd.com/bigbadraj/list/the-top-150-highest-rated-films-of-180-minutes/edit/",
         "240_Minutes_or_Greater_top_movies": "https://letterboxd.com/bigbadraj/list/the-top-20-highest-rated-films-of-240-minutes/edit/",
+        "top_250_action_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-action-narrative-feature/edit/",
+        "top_250_adventure_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-adventure-narrative/edit/",
+        "top_250_animation_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-animation-narrative/edit/",
+        "top_250_comedy_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-comedy-narrative-feature/edit/",
+        "top_250_crime_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-crime-narrative-feature/edit/",
+        "top_250_drama_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-drama-narrative-feature/edit/",
+        "top_250_family_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-family-narrative-feature/edit/",
+        "top_250_fantasy_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-fantasy-narrative-feature/edit/",
+        "top_250_history_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-history-narrative-feature/edit/",
+        "top_250_horror_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-horror-narrative-feature/edit/",
+        "top_250_music_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-music-narrative-feature/edit/",
+        "top_250_mystery_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-mystery-narrative-feature/edit/",
+        "top_250_romance_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-romance-narrative-feature/edit/",
+        "top_250_science-fiction_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-science-fiction-narrative/edit/",
+        "top_250_thriller_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-thriller-narrative-feature/edit/",
+        "top_250_western_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-western-narrative-feature/edit/",
+        "top_250_war_popular": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-war-narrative-feature/edit/",
+        "G_pop_movies": "https://letterboxd.com/bigbadraj/list/top-200-most-popular-g-rated-narrative-feature/edit/",
+        "PG_pop_movies": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-pg-rated-narrative-feature/edit/",
+        "PG-13_pop_movies": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-pg-13-rated-narrative/edit/",
+        "R_pop_movies": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-r-rated-narrative-feature/edit/",
+        "NC-17_pop_movies": "https://letterboxd.com/bigbadraj/list/top-25-most-popular-nc-17-rated-narrative/edit/",
+        "NR_pop_movies": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-nr-rated-narrative-feature/edit/",
+        "north_america_pop_movies": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-north-american-narrative/edit/",
+        "south_america_pop_movies": "https://letterboxd.com/bigbadraj/list/top-100-most-popular-south-american-narrative/edit/",
+        "europe_pop_movies": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-european-narrative-feature/edit/",
+        "asia_pop_movies": "https://letterboxd.com/bigbadraj/list/top-250-most-popular-asian-narrative-feature/edit/",
+        "africa_pop_movies": "https://letterboxd.com/bigbadraj/list/top-20-most-popular-african-narrative-feature/edit/",
+        "oceania_pop_movies": "https://letterboxd.com/bigbadraj/list/top-150-most-popular-australian-narrative/edit/",
+        "90_Minutes_or_Less_pop_movies": "https://letterboxd.com/bigbadraj/list/the-top-250-most-popular-films-of-90-minutes/edit/",
+        "120_Minutes_or_Less_pop_movies": "https://letterboxd.com/bigbadraj/list/the-top-250-most-popular-films-of-120-minutes/edit/",
+        "180_Minutes_or_Greater_pop_movies": "https://letterboxd.com/bigbadraj/list/the-top-75-most-popular-films-of-180-minutes/edit/",
+        "240_Minutes_or_Greater_pop_movies": "https://letterboxd.com/bigbadraj/list/the-top-5-most-popular-films-of-240-minutes/edit/",
     }
 
     # Dictionary of lists to update with specific descriptions
@@ -64,7 +105,7 @@ def update_letterboxd_lists():
         },
         "stand_up_comedy": {
             "url": "https://letterboxd.com/bigbadraj/list/top-100-highest-rated-stand-up-comedy-specials/edit/",
-            "description": "Minimum 1,000 reviews.\n\nLast Updated: {date}\n\n<a href=https://letterboxd.com/bigbadraj/list/the-official-list-index/> Check out more of the lists I update regularly! </a>"
+            "description": "Minimum 1,000 reviews.\n\nLast Updated: {date}\n\n<a href=https://letterboxd.com/bigbadraj/list/the-official-list-index/> Check out more of the lists I update regularly! </a>\n\n<a href=https://letterboxd.com/asset/list/stand-up-comedy-a-comprehensive-list/> Based off of this list of Stand-Up Comedy Specials </a>"
         },
         "box_office_real": {
             "url": "https://letterboxd.com/bigbadraj/list/top-250-highest-grossing-movies-of-all-time-1/edit/",
@@ -94,16 +135,16 @@ def update_letterboxd_lists():
     driver = webdriver.Firefox()
 
     try:
-        logging.info("✅ Navigating to Letterboxd homepage.")
+        log_and_print("✅ Navigating to Letterboxd homepage.")
         driver.get("https://letterboxd.com/")
         time.sleep(2)
 
-        logging.info("✅ Clicking on the 'Sign in' button.")
+        log_and_print("✅ Clicking on the 'Sign in' button.")
         sign_in_button = driver.find_element(By.CSS_SELECTOR, ".sign-in-menu a")
         sign_in_button.click()
         time.sleep(1)
 
-        logging.info("✅ Entering username and password.")
+        log_and_print("✅ Entering username and password.")
         driver.find_element(By.NAME, "username").send_keys(username)
         driver.find_element(By.NAME, "password").send_keys(password)
         driver.find_element(By.NAME, "password").send_keys(Keys.RETURN)
@@ -112,7 +153,7 @@ def update_letterboxd_lists():
         # Loop through each list to update
         results = []
         for list_name, edit_url in lists_to_update_easy.items():
-            logging.info(f"✅ Updating list: {list_name}")
+            log_and_print(f"✅ Updating list: {list_name}")
             
             # Initialize a flag to track errors
             has_error = False
@@ -123,7 +164,7 @@ def update_letterboxd_lists():
                 time.sleep(2)
 
                 # Step 1: Click the Import button
-                logging.info("✅ Clicking the Import button.")
+                log_and_print("✅ Clicking the Import button.")
                 import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
                 import_button.click()
                 time.sleep(2)
@@ -131,7 +172,7 @@ def update_letterboxd_lists():
                 # Step 2: Select the correct CSV file
                 csv_file_name = f"{list_name}.csv"
 
-                logging.info(f"✅ Selecting CSV file: {csv_file_name}")
+                log_and_print(f"✅ Selecting CSV file: {csv_file_name}")
                 time.sleep(1)
 
                 # Use Alt + D to focus on the address bar of the file dialog
@@ -170,10 +211,10 @@ def update_letterboxd_lists():
                         # If it finds any matching files, read the first one (or handle as needed)
                         with open(matching_files[0], 'r', encoding='utf-8') as txt_file:
                             file_contents = txt_file.read()
-                        logging.info(f"✅ Copied contents from {matching_files[0]}.")
+                        log_and_print(f"✅ Copied contents from {matching_files[0]}.")
                         file_found = True
                     else:
-                        logging.warning(f"No matching text files found for {list_name}. Attempting again.")
+                        log_and_print(f"No matching text files found for {list_name}. Attempting again.")
                         # Simulate typing the text file name to find it again
                         pyautogui.click(x=300, y=200)
                         time.sleep(1)
@@ -185,7 +226,7 @@ def update_letterboxd_lists():
                         attempts += 1  
 
                 if not file_found:
-                    logging.error(f"❌ Failed to find any matching text files for {list_name} after {max_attempts} attempts.")
+                    log_and_print(f"❌ Failed to find any matching text files for {list_name} after {max_attempts} attempts.")
                     has_error = True  
 
                 time.sleep(7 )  
@@ -194,9 +235,9 @@ def update_letterboxd_lists():
                 try:
                     hide_successful_matches_handle = driver.find_element(By.CSS_SELECTOR, ".import-toggle .handle")
                     hide_successful_matches_handle.click()
-                    logging.info("✅ Clicked the 'Hide Successful Matches' handle.")
+                    log_and_print("✅ Clicked the 'Hide Successful Matches' handle.")
                 except Exception as e:
-                    logging.error(f"❌ Failed to click the handle: {str(e)}")
+                    log_and_print(f"❌ Failed to click the handle: {str(e)}")
 
                 time.sleep(5)  
 
@@ -204,14 +245,14 @@ def update_letterboxd_lists():
                 try:
                     replace_substitute = driver.find_element(By.CSS_SELECTOR, "label[for='replace-original'] .substitute")
                     replace_substitute.click()
-                    logging.info("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
+                    log_and_print("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
                 except Exception as e:
-                    logging.error(f"❌ Failed to click the substitute icon: {str(e)}")
+                    log_and_print(f"❌ Failed to click the substitute icon: {str(e)}")
 
                 time.sleep(1)  
 
                 # Step 6: Click the "Add films to list" button
-                logging.info("✅ Clicking the 'Add films to list' button.")
+                log_and_print("✅ Clicking the 'Add films to list' button.")
                 add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
                 add_films_button.click()
                 time.sleep(5)  
@@ -223,13 +264,13 @@ def update_letterboxd_lists():
                     try:
                         description_field.clear()  
                         description_field.send_keys(file_contents)  
-                        logging.info("✅ Successfully added text using send_keys.")
+                        log_and_print("✅ Successfully added text using send_keys.")
                     except Exception as e:
-                        logging.error(f"❌ Failed to add text using send_keys: {str(e)}")
+                        log_and_print(f"❌ Failed to add text using send_keys: {str(e)}")
 
                 # Step 8: Save the changes
                 time.sleep(1)
-                logging.info("✅ Saving the changes.")
+                log_and_print("✅ Saving the changes.")
                 driver.find_element(By.ID, "list-edit-save").click()
                 time.sleep(7)  
 
@@ -244,10 +285,10 @@ def update_letterboxd_lists():
                         'list_name': list_name,
                         'status': 'Successfully updated'
                     })
-                logging.info(f"✅ Successfully updated list: {list_name}")
+                log_and_print(f"✅ Successfully updated list: {list_name}")
 
             except Exception as e:
-                logging.error(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
+                log_and_print(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
                 results.append({
                     'list_name': list_name,
                     'status': f'Failed to update: {str(e)}'
@@ -256,7 +297,7 @@ def update_letterboxd_lists():
 
         # Handle lists with specific descriptions
         for list_name, details in lists_with_descriptions.items():
-            logging.info(f"✅ Updating list: {list_name}")
+            log_and_print(f"✅ Updating list: {list_name}")
 
             # Initialize a flag to track errors
             has_error = False
@@ -267,7 +308,7 @@ def update_letterboxd_lists():
                 time.sleep(2) 
 
                 # Step 1: Click the Import button
-                logging.info("✅ Clicking the Import button.")
+                log_and_print("✅ Clicking the Import button.")
                 import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
                 import_button.click()
                 time.sleep(2)  
@@ -275,7 +316,7 @@ def update_letterboxd_lists():
                 # Step 2: Select the correct CSV file
                 csv_file_name = f"{list_name}.csv"  
 
-                logging.info(f"✅ Selecting CSV file: {csv_file_name}")
+                log_and_print(f"✅ Selecting CSV file: {csv_file_name}")
                 time.sleep(1) 
 
                 # Use Alt + D to focus on the address bar of the file dialog
@@ -301,9 +342,9 @@ def update_letterboxd_lists():
                 try:
                     hide_successful_matches_handle = driver.find_element(By.CSS_SELECTOR, ".import-toggle .handle")
                     hide_successful_matches_handle.click()
-                    logging.info("✅ Clicked the 'Hide Successful Matches' handle.")
+                    log_and_print("✅ Clicked the 'Hide Successful Matches' handle.")
                 except Exception as e:
-                    logging.error(f"❌ Failed to click the handle: {str(e)}")
+                    log_and_print(f"❌ Failed to click the handle: {str(e)}")
 
                 time.sleep(7)
 
@@ -311,14 +352,14 @@ def update_letterboxd_lists():
                 try:
                     replace_substitute = driver.find_element(By.CSS_SELECTOR, "label[for='replace-original'] .substitute")
                     replace_substitute.click()
-                    logging.info("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
+                    log_and_print("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
                 except Exception as e:
-                    logging.error(f"❌ Failed to click the substitute icon: {str(e)}")
+                    log_and_print(f"❌ Failed to click the substitute icon: {str(e)}")
                     
                 time.sleep(1) 
 
                 # Step 6: Click the "Add films to list" button
-                logging.info("✅ Clicking the 'Add films to list' button.")
+                log_and_print("✅ Clicking the 'Add films to list' button.")
                 add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
                 add_films_button.click()
                 time.sleep(5)  
@@ -332,13 +373,13 @@ def update_letterboxd_lists():
                 try:
                     description_field.clear()  
                     description_field.send_keys(description) 
-                    logging.info("✅ Successfully added text using send_keys.")
+                    log_and_print("✅ Successfully added text using send_keys.")
                 except Exception as e:
-                    logging.error(f"❌ Failed to add text using send_keys: {str(e)}")
+                    log_and_print(f"❌ Failed to add text using send_keys: {str(e)}")
 
                 # Step 8: Save the changes
                 time.sleep(1)
-                logging.info("✅ Saving the changes.")
+                log_and_print("✅ Saving the changes.")
                 driver.find_element(By.ID, "list-edit-save").click()
                 time.sleep(7)  
 
@@ -353,10 +394,10 @@ def update_letterboxd_lists():
                         'list_name': list_name,
                         'status': 'Successfully updated'
                     })
-                logging.info(f"✅ Successfully updated list: {list_name}")
+                log_and_print(f"✅ Successfully updated list: {list_name}")
 
             except Exception as e:
-                logging.error(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
+                log_and_print(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
                 results.append({
                     'list_name': list_name,
                     'status': f'Failed to update: {str(e)}'
@@ -365,7 +406,7 @@ def update_letterboxd_lists():
 
         # Handle special lists
         for list_name, details in special_lists.items():
-            logging.info(f"✅ Updating special list: {list_name}")
+            log_and_print(f"✅ Updating special list: {list_name}")
 
             try:
                 # Navigate to the list edit page
@@ -373,15 +414,15 @@ def update_letterboxd_lists():
                 time.sleep(2)  
 
                 # Step 1: Click the Import button
-                logging.info("✅ Clicking the Import button.")
+                log_and_print("✅ Clicking the Import button.")
                 import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
                 import_button.click()
                 time.sleep(2)  
 
                 # Step 2: Import the first CSV file
-                logging.info("✅ Importing the first CSV file.")
+                log_and_print("✅ Importing the first CSV file.")
                 csv_file_name = details["csv_file_name_1"] 
-                logging.info(f"✅ Selecting CSV file: {csv_file_name}")
+                log_and_print(f"✅ Selecting CSV file: {csv_file_name}")
                 time.sleep(1)  
 
                 # Use Alt + D to focus on the address bar of the file dialog
@@ -417,10 +458,10 @@ def update_letterboxd_lists():
                         # If it finds matching files, read the first one (or handle as needed)
                         with open(matching_files[0], 'r', encoding='utf-8') as txt_file:
                             file_contents = txt_file.read()
-                        logging.info(f"✅ Copied contents from {matching_files[0]}.")
+                        log_and_print(f"✅ Copied contents from {matching_files[0]}.")
                         file_found = True
                     else:
-                        logging.warning(f"No matching text files found for {list_name}. Attempting again.")
+                        log_and_print(f"No matching text files found for {list_name}. Attempting again.")
                         pyautogui.click(x=300, y=200)  
                         time.sleep(1)  
                         pyautogui.typewrite(f"{list_name[:15]}*.txt", interval=0.1) 
@@ -434,9 +475,9 @@ def update_letterboxd_lists():
                 try:
                     hide_successful_matches_handle = driver.find_element(By.CSS_SELECTOR, ".import-toggle .handle")
                     hide_successful_matches_handle.click()
-                    logging.info("✅ Clicked the 'Hide Successful Matches' handle.")
+                    log_and_print("✅ Clicked the 'Hide Successful Matches' handle.")
                 except Exception as e:
-                    logging.error(f"❌ Failed to click the handle: {str(e)}")
+                    log_and_print(f"❌ Failed to click the handle: {str(e)}")
 
                 time.sleep(7)  
                 
@@ -444,14 +485,14 @@ def update_letterboxd_lists():
                 try:
                     replace_substitute = driver.find_element(By.CSS_SELECTOR, "label[for='replace-original'] .substitute")
                     replace_substitute.click()
-                    logging.info("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
+                    log_and_print("✅ Clicked the 'Replace existing list with imported films' substitute icon.")
                 except Exception as e:
-                    logging.error(f"❌ Failed to click the substitute icon: {str(e)}")
+                    log_and_print(f"❌ Failed to click the substitute icon: {str(e)}")
                 
                 time.sleep(1)  
 
                 # Step 5: Click the "Add films to list" button
-                logging.info("✅ Clicking the 'Add films to list' button.")
+                log_and_print("✅ Clicking the 'Add films to list' button.")
                 add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
                 add_films_button.click()
                 time.sleep(5)  
@@ -463,26 +504,26 @@ def update_letterboxd_lists():
                     try:
                         description_field.clear()  
                         description_field.send_keys(file_contents) 
-                        logging.info("✅ Successfully added text using send_keys.")
+                        log_and_print("✅ Successfully added text using send_keys.")
                     except Exception as e:
-                        logging.error(f"❌ Failed to add text using send_keys: {str(e)}")
+                        log_and_print(f"❌ Failed to add text using send_keys: {str(e)}")
 
                 # Step 7: Save the changes for the first import
                 time.sleep(15)
-                logging.info("✅ Saving the changes for the first import.");
+                log_and_print("✅ Saving the changes for the first import.");
                 driver.find_element(By.ID, "list-edit-save").click()
                 time.sleep(15)  
 
                 # Step 8: Click the Import button again
-                logging.info("✅ Clicking the Import button for the second time.")
+                log_and_print("✅ Clicking the Import button for the second time.")
                 import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
                 import_button.click()
                 time.sleep(2)  
 
                 # Step 9: Import the second CSV file
-                logging.info("✅ Importing the second CSV file.")
+                log_and_print("✅ Importing the second CSV file.")
                 csv_file_name = details["csv_file_name_2"]  
-                logging.info(f"✅ Selecting CSV file: {csv_file_name}")
+                log_and_print(f"✅ Selecting CSV file: {csv_file_name}")
                 time.sleep(1)  
 
                 # Use Alt + D to focus on the address bar of the file dialog
@@ -509,33 +550,33 @@ def update_letterboxd_lists():
                 try:
                     hide_successful_matches_handle = driver.find_element(By.CSS_SELECTOR, ".import-toggle .handle")
                     hide_successful_matches_handle.click()
-                    logging.info("✅ Clicked the 'Hide Successful Matches' handle.")
+                    log_and_print("✅ Clicked the 'Hide Successful Matches' handle.")
                 except Exception as e:
-                    logging.error(f"❌ Failed to click the handle: {str(e)}")
+                    log_and_print(f"❌ Failed to click the handle: {str(e)}")
 
                 time.sleep(7)
 
                 # Step 11: Click the "Add films to list" button again
-                logging.info("✅ Clicking the 'Add films to list' button.")
+                log_and_print("✅ Clicking the 'Add films to list' button.")
                 add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
                 add_films_button.click()
                 time.sleep(5)  
 
                 # Step 12: Save the changes for the second import
                 time.sleep(1)
-                logging.info("✅ Saving the changes for the second import.")
+                log_and_print("✅ Saving the changes for the second import.")
                 driver.find_element(By.ID, "list-edit-save").click()
                 time.sleep(15);  
 
-                logging.info(f"✅ Successfully updated special list: {list_name}")
+                log_and_print(f"✅ Successfully updated special list: {list_name}")
 
             except Exception as e:
-                logging.error(f"❌ Failed to update special list: {list_name}. Error: {str(e)}")
+                log_and_print(f"❌ Failed to update special list: {list_name}. Error: {str(e)}")
                 continue  
 
     except Exception as e:
-        logging.error(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
-        logging.error(traceback.format_exc())  
+        log_and_print(f"❌ Failed to update list: {list_name}. Error: {str(e)}")
+        log_and_print(traceback.format_exc())  
         results.append({
             'list_name': list_name,
             'status': f'Failed to update: {str(e)}'
@@ -543,13 +584,13 @@ def update_letterboxd_lists():
 
     finally:
         # Output the results to a CSV file
-        logging.info("✅ Outputting results to CSV file.")
+        log_and_print("✅ Outputting results to CSV file.")
         results_df = pd.DataFrame(results)
         results_df.to_csv(output_csv_path, index=False, mode='a', header=not os.path.exists(output_csv_path)) 
 
         # Close the browser
         time.sleep(5)
-        logging.info("✅ Closing the browser.")
+        log_and_print("✅ Closing the browser.")
         driver.quit()
 
 # Example usage
