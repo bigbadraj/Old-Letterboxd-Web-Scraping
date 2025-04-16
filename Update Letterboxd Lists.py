@@ -22,8 +22,8 @@ def log_and_print(message: str):
 
 def update_letterboxd_lists():
     # User credentials and file paths
-    username = "YOUR USERNAME HERE"
-    password = "YOUR PASSWORD HERE"
+    username = "USERNAME"
+    password = "PASSWORD"
     output_csv_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs\update_results.csv"
     base_folder_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs"
 
@@ -195,17 +195,14 @@ def update_letterboxd_lists():
 
                 time.sleep(2)  
 
-                # Step 3: Wait for 10 seconds and copy the associated txt file
-                txt_file_name = f"{list_name}.txt"  
-
-                # Attempt to find and copy the associated txt file
+                # Step 3: Attempt to find and copy the associated txt file
                 file_found = False
                 attempts = 0
                 max_attempts = 3
 
                 while not file_found and attempts < max_attempts:
                     # Use glob to find files that include the list_name
-                    matching_files = glob.glob(os.path.join(base_folder_path, f"{list_name}*.txt"))
+                    matching_files = glob.glob(os.path.join(base_folder_path, f"stats_{list_name}*.txt"))
 
                     if matching_files:
                         # If it finds any matching files, read the first one (or handle as needed)

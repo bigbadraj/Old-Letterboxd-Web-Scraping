@@ -72,7 +72,7 @@ def process_film(session, film_url, progress_tracker, list_number=None):
             sleep(1)
     return None
 
-def process_page(session, url, max_films, progress_tracker):
+def process_page(session, url, progress_tracker):
     try:
         response = session.get(url, timeout=10)
         response.raise_for_status()
@@ -179,7 +179,7 @@ def update_github_file(filename, file_content):
     """
     try:
         # Initialize Github with your access token
-        g = Github("INSERT YOUR GITHUB API KEY HERE")
+        g = Github("YOUR API KEY HERE")
         
         # Get the repository
         repo = g.get_repo("bigbadraj/Letterboxd-List-JSONs")

@@ -34,9 +34,11 @@ MAX_MOVIES_2500 = 2500
 MAX_MOVIES_MPAA = 250
 MAX_MOVIES_RUNTIME = 250
 MAX_MOVIES_CONTINENT = 250
+
+# Configure settings
 MIN_RATING_COUNT = 1000
 MIN_RUNTIME = 40
-MAX_RETRIES = 10
+MAX_RETRIES = 25
 RETRY_DELAY = 15
 CHUNK_SIZE = 1900
 
@@ -52,11 +54,11 @@ MAX_MOVIES_SOUTH_AMERICA = 250
 # File paths
 BASE_DIR = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs'
 LIST_DIR = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
-BLACKLIST_PATH = os.path.join(LIST_DIR, 'blacklist.csv')
-WHITELIST_PATH = os.path.join(LIST_DIR, 'whitelist.csv')
+BLACKLIST_PATH = os.path.join(LIST_DIR, 'blacklist.xlsx')
+WHITELIST_PATH = os.path.join(LIST_DIR, 'whitelist.xlsx')
 
 # TMDb API key
-TMDB_API_KEY = 'INSERT YOUR TMDB API KEY HERE'
+TMDB_API_KEY = 'YOUR API KEY HERE'
 
 # Filtering criteria
 FILTER_KEYWORDS = {
@@ -153,8 +155,8 @@ class RequestsSession:
 class MovieProcessor:
     def __init__(self):
         self.session = RequestsSession()
-        self.whitelist = pd.read_csv(WHITELIST_PATH, header=0, names=['Title', 'Year'], usecols=[0,1], encoding='utf-8')
-        self.blacklist = pd.read_csv(BLACKLIST_PATH, header=0, names=['Title', 'Year'], usecols=[0, 1], encoding='utf-8')
+        self.whitelist = pd.read_excel(WHITELIST_PATH, header=0, names=['Title', 'Year'], usecols=[0,1])
+        self.blacklist = pd.read_excel(BLACKLIST_PATH, header=0, names=['Title', 'Year'], usecols=[0, 1])
         self.added_movies: Set[Tuple[str, str]] = set()
         self.film_data: List[Dict] = []
         self.rejected_data: List[List] = []
@@ -361,20 +363,13 @@ class LetterboxdScraper:
                             self.valid_movies_count += 1  # Increment count for whitelisted movies
                             continue  # Skip to the next movie
 
-                    # Check 3: Blacklist
+                    # Check 4: Blacklist
                     if self.processor.is_blacklisted(film_title, release_year):
                         print_to_csv(f"❌ {film_title} was not added due to being blacklisted.")
                         self.processor.rejected_data.append([film_title, release_year, tmdb_id, 'Blacklisted'])
                         continue
 
-                    # Check 4: TMDB ID
-                    if not tmdb_id:
-                        print_to_csv(f"❌ {film_title} was not added due to missing TMDB ID.")
-                        self.processor.rejected_data.append([film_title, release_year, None, 'Missing TMDB ID'])
-                        self.processor.unfiltered_denied.append([film_title, release_year, None])
-                        continue
-
-                    # Check 5: Runtime
+                    # Check 4: Runtime
                     runtime = self.processor.extract_runtime(soup, film_title)
                     if runtime is None:
                         continue  # Skip this film entirely if runtime is None
@@ -382,6 +377,13 @@ class LetterboxdScraper:
                         print_to_csv(f"❌ {film_title} was not added due to a short runtime of {runtime} minutes.")
                         self.processor.rejected_data.append([film_title, release_year, tmdb_id, 'Short runtime'])
                         self.processor.add_to_blacklist(film_title, release_year, 'Short runtime')
+                        continue
+
+                    # Check 5: TMDB ID
+                    if not tmdb_id:
+                        print_to_csv(f"❌ {film_title} was not added due to missing TMDB ID.")
+                        self.processor.rejected_data.append([film_title, release_year, None, 'Missing TMDB ID'])
+                        self.processor.unfiltered_denied.append([film_title, release_year, None])
                         continue
 
                     # Check 6: Keywords and Genres
@@ -571,7 +573,7 @@ class LetterboxdScraper:
         formatted_date = current_date.strftime('%B ') + get_ordinal(current_date.day) + f", {current_date.year}"
 
         # Save statistics for this rating
-        stats_path = os.path.join(BASE_DIR, f'rating_filtered_titles_stats.txt')
+        stats_path = os.path.join(BASE_DIR, f'rating_filtered_titles.txt')
         with open(stats_path, mode='w', encoding='utf-8') as file:
             file.write(f"<strong>The Top {len(max_movies_2500_stats['film_data'])} Highest Rated Narrative Feature Films on Letterboxd.</strong>\n\n")
             file.write(f"<strong>Last updated: {formatted_date}</strong>\n\n")
@@ -1039,7 +1041,7 @@ class LetterboxdScraper:
                         chunk_df.to_csv(output_path, index=False, encoding='utf-8')
 
                     # Save statistics for this continent
-                    stats_path = os.path.join(BASE_DIR, f'{continent.replace(" ", "_").lower()}_top_movies_stats.txt')
+                    stats_path = os.path.join(BASE_DIR, f'stats_{continent.replace(" ", "_").lower()}_top_movies.txt')
                     with open(stats_path, mode='w', encoding='utf-8') as file:
                         file.write(f"<strong>The Top {len(top_data)} Highest Rated Films from {'Australia' if continent == 'Oceania' else continent}</strong>\n\n")
                         file.write(f"<strong>Last updated: {formatted_date}</strong>\n\n")
@@ -1146,7 +1148,7 @@ class LetterboxdScraper:
                 formatted_date = current_date.strftime('%B ') + get_ordinal(current_date.day) + f", {current_date.year}"
 
                 # Save statistics for this rating
-                stats_path = os.path.join(BASE_DIR, f'{rating.upper()}_top_movies_stats.txt')
+                stats_path = os.path.join(BASE_DIR, f'stats_{rating.upper()}_top_movies.txt')
                 with open(stats_path, mode='w', encoding='utf-8') as file:
                     file.write(f"<strong>The Top {len(top_data)} Highest Rated {rating} Rated Movies On Letterboxd</strong>\n\n")
                     file.write("<strong>Rating defined by MPAA. Films released before November 1, 1968 are not eligible as they predate the current MPAA rating system. (Unless there was a subsequent re-rating.)</strong>\n\n")
@@ -1219,7 +1221,7 @@ class LetterboxdScraper:
                 formatted_date = current_date.strftime('%B ') + get_ordinal(current_date.day) + f", {current_date.year}"
 
                 # Save statistics for this category
-                stats_path = os.path.join(BASE_DIR, f'{category}_top_movies_stats.txt')
+                stats_path = os.path.join(BASE_DIR, f'stats_{category}_top_movies.txt')
                 with open(stats_path, mode='w', encoding='utf-8') as file:
                     file.write(f"<strong>The Top {len(top_data)} Highest Rated Films With a Runtime of {category.replace('_', ' ')}.</strong>\n\n")
                     file.write(f"<strong>Last updated: {formatted_date}</strong>\n\n")

@@ -188,7 +188,7 @@ def update_github_file(filename, file_content):
     """
     try:
         # Initialize Github with your access token
-        g = Github("INSERT YOUR GITHUB API KEY HERE")
+        g = Github("YOUR API KEY HERE")
         
         # Get the repository
         repo = g.get_repo("bigbadraj/Letterboxd-List-JSONs")

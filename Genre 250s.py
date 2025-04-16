@@ -31,14 +31,14 @@ locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 MAX_MOVIES = 250
 MIN_RATING_COUNT = 1000
 MIN_RUNTIME = 40
-MAX_RETRIES = 5
+MAX_RETRIES = 25
 RETRY_DELAY = 15
 
 # File paths
 BASE_DIR = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs'
 List_DIR = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
-BLACKLIST_PATH = os.path.join(List_DIR, 'blacklist.csv')
-WHITELIST_PATH = os.path.join(List_DIR, 'whitelist.csv')
+BLACKLIST_PATH = os.path.join(List_DIR, 'blacklist.xlsx')
+WHITELIST_PATH = os.path.join(List_DIR, 'whitelist.xlsx')
 
 # TMDb API key
 TMDB_API_KEY = 'YOUR API KEY HERE'
@@ -80,8 +80,8 @@ class RequestsSession:
 class MovieProcessor:
     def __init__(self):
         self.session = RequestsSession()
-        self.whitelist = pd.read_csv(WHITELIST_PATH, header=0, names=['Title', 'Year'], usecols=[0,1], encoding='utf-8')
-        self.blacklist = pd.read_csv(BLACKLIST_PATH, header=0, names=['Title', 'Year'], usecols=[0, 1], encoding='utf-8')
+        self.whitelist = pd.read_excel(WHITELIST_PATH, header=0, names=['Title', 'Year'], usecols=[0,1])
+        self.blacklist = pd.read_excel(BLACKLIST_PATH, header=0, names=['Title', 'Year'], usecols=[0, 1])
         self.added_movies: Set[Tuple[str, str]] = set()
         self.film_data: List[Dict] = []
         self.unfiltered_approved: List[List] = []
@@ -247,7 +247,19 @@ class LetterboxdScraper:
                             print_to_csv(f"❌ {film_title} was not added due to insufficient ratings: {rating_count} ratings.")
                             continue
 
-                        # Check 2: Runtime
+                        # Check 2: Whitelist
+                        if self.processor.is_whitelisted(film_title, release_year):
+                            movie_identifier = (film_title.lower(), release_year)
+                            if movie_identifier not in self.processor.added_movies:
+                                self.process_approved_movie(film_title, release_year, tmdb_id, soup, "whitelisted")
+                                continue
+
+                        # Check 3: Blacklist
+                        if self.processor.is_blacklisted(film_title, release_year):
+                            print_to_csv(f"❌ {film_title} was not added due to being blacklisted.")
+                            continue
+
+                        # Check 4: Runtime
                         runtime = self.processor.extract_runtime(soup, film_title)
                         if runtime == -1:  # Check for the specific value indicating no runtime
                             continue  # Skip this movie and continue with the next
@@ -256,18 +268,6 @@ class LetterboxdScraper:
                             print_to_csv(f"❌ {film_title} was not added {rejection_reason}")
                             self.processor.add_to_blacklist(film_title, release_year, rejection_reason)
                             continue  # Skip this movie and continue with the next
-
-                        # Check 3: Whitelist
-                        if self.processor.is_whitelisted(film_title, release_year):
-                            movie_identifier = (film_title.lower(), release_year)
-                            if movie_identifier not in self.processor.added_movies:
-                                self.process_approved_movie(film_title, release_year, tmdb_id, soup, "whitelisted")
-                                continue
-
-                        # Check 4: Blacklist
-                        if self.processor.is_blacklisted(film_title, release_year):
-                            print_to_csv(f"❌ {film_title} was not added due to being blacklisted.")
-                            continue
 
                         # Check 5: TMDB ID
                         if not tmdb_id:
@@ -458,7 +458,7 @@ class LetterboxdScraper:
         current_date = datetime.now()
         formatted_date = current_date.strftime('%B ') + get_ordinal(current_date.day) + f", {current_date.year}"
 
-        stats_path = os.path.join(BASE_DIR, f'top_250_{genre}_{sort_type}.txt')  # Use genre and sort type in filename
+        stats_path = os.path.join(BASE_DIR, f'stats_top_250_{genre}_{sort_type}.txt')  # Use genre and sort type in filename
         with open(stats_path, mode='w', encoding='utf-8') as file:
             # Change "Animation" to "Animated" and "Science-fiction" to "Science Fiction"
             formatted_header = genre.capitalize()

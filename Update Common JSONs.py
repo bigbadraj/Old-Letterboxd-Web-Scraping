@@ -188,10 +188,10 @@ def update_github_file(filename, file_content):
     """
     try:
         # Initialize Github with your access token
-        g = Github("YOUR ACCESS TOKEN HERE")
+        g = Github("YOUR API KEY HERE")
         
         # Get the repository
-        repo = g.get_repo("YOUR REPO HERE")
+        repo = g.get_repo("bigbadraj/Letterboxd-List-JSONs")
         
         # Get just the filename without path
         base_filename = os.path.basename(filename)
@@ -246,6 +246,7 @@ def main():
         {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-rated-things-on-letterboxd/"},
         {"url": "https://letterboxd.com/ben_macdonald/list/guillermo-del-toros-twitter-film-recommendations/"},
         {"url": "https://letterboxd.com/bigbadraj/list/highest-grossing-movies-of-all-time-adjusted/"},
+        {"url": "https://letterboxd.com/bigbadraj/list/top-250-highest-grossing-movies-of-all-time-1/"},
         {"url": "https://letterboxd.com/imthelizardking/list/rotten-tomatoes-300-best-movies-of-all-time/"},
         {"url": "https://letterboxd.com/browsehorror/list/horror-movies-everyone-should-watch-at-least/"},
         {"url": "https://letterboxd.com/fcbarcelona/list/movies-everyone-should-watch-at-least-once/"},
@@ -255,12 +256,11 @@ def main():
         {"url": "https://letterboxd.com/andregps/list/letterboxd-four-favorites-interviews/"},
         {"url": "https://letterboxd.com/mattheweg/list/the-top-rated-movie-of-every-year-by-letterboxd/"},
         {"url": "https://letterboxd.com/rileyaust/list/movies-where-a-5-star-rating-is-most-common/"},
-        {"url": "https://letterboxd.com/disposablemiffy/list/the-billion-dollar-club/"},
+        {"url": "https://letterboxd.com/jonny5244/list/billion-dollar-movies/"},
         {"url": "https://letterboxd.com/desdemoor/list/letterboxd-113-highest-rated-19th-century/"},
         {"url": "https://letterboxd.com/offensivename/list/official-top-50-narrative-feature-films-under/"},
         {"url": "https://letterboxd.com/stateofhailey/list/letterboxds-top-250-romantic-comedy-films/"},
         {"url": "https://letterboxd.com/jumpy/list/letterboxds-official-top-250-anime-tv-miniseries/"},
-        {"url": "https://letterboxd.com/brsan/list/letterboxds-top-250-international-films/"},
         {"url": "https://letterboxd.com/jbutts15/list/the-complete-criterion-collection/"},
         {"url": "https://letterboxd.com/flanaganfilm/list/flanagans-favorites-my-top-100/"},
         {"url": "https://letterboxd.com/zishi/list/four-greatest-films-of-each-year-according/"},
