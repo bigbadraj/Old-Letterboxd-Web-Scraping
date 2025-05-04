@@ -30,8 +30,8 @@ def print_to_csv(message: str):
 
 # Configure locale and constants
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
-MAX_MOVIES = 4 # Currently using 7000
-MAX_MOVIES_2500 = 2
+MAX_MOVIES = 7000 # Currently using 7000
+MAX_MOVIES_2500 = 2500
 MAX_MOVIES_MPAA = 250
 MAX_MOVIES_RUNTIME = 250
 MAX_MOVIES_CONTINENT = 250
@@ -106,7 +106,7 @@ runtime_stats = {
 
 # Define continents and their associated countries in a case-insensitive manner
 CONTINENTS_COUNTRIES = {
-    'Africa': ['Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon', 'Central African Republic', 'Chad', 'Comoros', 'Congo, Democratic Republic of the', 'Congo, Republic of the', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Eswatini', 'Ethiopia', 'Gabon', 'Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'],
+    'Africa': ['Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon', 'Central African Republic', 'Chad', 'Comoros', 'Congo, Democratic Republic of the', 'Congo, Republic of the', 'Cote d’Ivoire', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Eswatini', 'Ethiopia', 'Gabon', 'Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'],
     'Asia': ['State of Palestine', 'Hong Kong', 'Afghanistan', 'Armenia', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Bhutan', 'Brunei', 'Cambodia', 'China', 'Cyprus', 'Georgia', 'India', 'Indonesia', 'Iran', 'Iraq', 'Israel', 'Japan', 'Jordan', 'Kazakhstan', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Lebanon', 'Malaysia', 'Maldives', 'Mongolia', 'Myanmar', 'Nepal', 'North Korea', 'Oman', 'Pakistan', 'Palestine', 'Philippines', 'Qatar', 'Russia', 'Saudi Arabia', 'Singapore', 'South Korea', 'Sri Lanka', 'Syrian Arab Republic', 'Taiwan', 'Tajikistan', 'Thailand', 'Timor-Leste', 'Turkey', 'Turkmenistan', 'United Arab Emirates', 'Uzbekistan', 'Vietnam', 'Yemen'],
     'Europe': ['East Germany', 'North Macedonia', 'Yugoslavia', 'Serbia and Montenegro', 'Czechoslovakia', 'Czechia', 'USSR', 'Albania', 'Latvia', 'Andorra', 'Liechtenstein', 'Armenia', 'Lithuania', 'Austria', 'Luxembourg', 'Azerbaijan', 'Malta', 'Belarus', 'Moldova', 'Belgium', 'Monaco', 'Bosnia and Herzegovina', 'Montenegro', 'Bulgaria', 'Netherlands', 'Croatia', 'Norway', 'Cyprus', 'Poland', 'Czech Republic', 'Portugal', 'Denmark', 'Romania', 'Estonia', 'Russia', 'Finland', 'San Marino', 'Former Yugoslav Republic of Macedonia', 'Serbia', 'France', 'Slovakia', 'Georgia', 'Slovenia', 'Germany', 'Spain', 'Greece', 'Sweden', 'Hungary', 'Switzerland', 'Iceland', 'Ireland', 'Turkey', 'Italy', 'Ukraine', 'Kosovo', 'UK'],
     'North America': ['Cuba', 'The Bahamas', 'Bermuda', 'Canada', 'The Caribbean', 'Clipperton Island', 'Greenland', 'Mexico', 'Saint Pierre and Miquelon', 'Turks and Caicos Islands', 'USA', 'Belize', 'Costa Rica', 'El Salvador', 'Guatemala', 'Honduras', 'Nicaragua', 'Panama'],
@@ -189,8 +189,7 @@ class MovieProcessor:
         if response.status_code == 200:
             movie_data = response.json()
             keywords = [keyword['name'] for keyword in movie_data['keywords']['keywords']]
-            genre_elements = movie_data['genres']
-            genres = [genre['name'] for genre in genre_elements]
+            genres = [genre['name'] for genre in movie_data['genres']]
             return keywords, genres
         else:
             if response.status_code == 401:
@@ -221,7 +220,8 @@ class MovieProcessor:
             for _, row in self.blacklist.iterrows()
         )
 
-    def extract_runtime(self, soup: BeautifulSoup, film_title: str) -> Optional[int]:
+    @staticmethod
+    def extract_runtime(soup: BeautifulSoup, film_title: str) -> Optional[int]:
         runtime_tag = soup.find('p', class_='text-link text-footer')
         if runtime_tag:
             # Use a regular expression to find the runtime in minutes
@@ -238,11 +238,6 @@ class MovieProcessor:
 
 def setup_webdriver() -> webdriver.Firefox:
     options = Options()
-    options.headless = True
-    options.set_preference("permissions.default.image", 2)  # Disable images
-    options.set_preference("dom.ipc.plugins.enabled.libflashplayer.so", "false")
-    options.set_preference("browser.display.use_document_fonts", 0)
-    options.set_preference("browser.display.document_color_use", 2)
     service = Service()
     return webdriver.Firefox(service=service, options=options)
 
@@ -259,18 +254,16 @@ def format_time(seconds):
     else:
         return f"{seconds}s"
 
-def extract_mpaa_rating(driver) -> Optional[str]:
-    try:
-        country_elements = driver.find_elements(By.CSS_SELECTOR, '.release-country-list .release-country')
-        for country in country_elements:
-            country_name = country.find_element(By.CSS_SELECTOR, '.name').text.strip()
-            if country_name == "USA":
-                rating_element = country.find_element(By.CSS_SELECTOR, '.release-certification-badge .label')
-                if rating_element:
-                    return rating_element.text.strip()
-        return None
-    except Exception:
-        return None
+def extract_mpaa_rating(soup: BeautifulSoup) -> Optional[str]:
+    """Extract the MPAA rating from the movie's soup if the country is USA."""
+    country_elements = soup.select('.release-country-list .release-country')
+    for country in country_elements:
+        country_name = country.select_one('.name').get_text(strip=True)
+        if country_name == "USA":
+            rating_element = country.select_one('.release-certification-badge .label')
+            if rating_element:
+                return rating_element.get_text(strip=True)
+    return None
 
 # Initialize stats for MAX_MOVIES_2500
 max_movies_2500_stats = {
@@ -288,7 +281,7 @@ class LetterboxdScraper:
     def __init__(self):
         self.driver = setup_webdriver()
         self.processor = MovieProcessor()
-        self.base_url = 'https://letterboxd.com/films/by/popular/'
+        self.base_url = 'https://letterboxd.com/films/by/rating/'
         self.total_titles = 0
         self.processed_titles = 0
         self.valid_movies_count = 0
@@ -336,68 +329,41 @@ class LetterboxdScraper:
 
                 print_to_csv(f"\n{f' Page {self.page_number} ':=^100}")
 
-                # Collect all film URLs and titles first
-                film_data_list = []
+                # Process each film on the page
                 for container in film_containers:
-                    film_title = container.get_attribute('data-film-name')
-                    film_url = container.find_element(By.CSS_SELECTOR, 'a').get_attribute('href')
-                    film_data_list.append((film_title, film_url))
-
-                # Then, process each film
-                for film_title, film_url in film_data_list:
                     if self.valid_movies_count >= MAX_MOVIES:
                         print_to_csv(f"\nReached the target of {MAX_MOVIES} successful movies. Stopping scraping.")
                         return
 
-                    self.driver.get(film_url)
-
-                    # --- Extract Release Year ---
-                    try:
-                        meta_tag = self.driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
-                        content = meta_tag.get_attribute('content')
-                        # Extract the year from the content string
-                        if content and '(' in content and ')' in content:
-                            release_year = content.split('(')[-1].split(')')[0].strip()
-                        else:
-                            release_year = None
-                            print_to_csv("Release year not found in og:title content.")
-                    except Exception as e:
-                        release_year = None
-                        print_to_csv(f"Release year not found: {e}")
-
-                    # --- Extract TMDb ID ---
-                    try:
-                        tmdb_id = self.driver.find_element(By.TAG_NAME, 'body').get_attribute('data-tmdb-id')
-                    except Exception as e:
-                        tmdb_id = None
-                        print_to_csv(f"TMDb ID not found: {e}")
-
-                    # --- Extract Rating Count ---
-                    rating_count = 0
-                    try:
-                        page_source = self.driver.page_source
-                        match = re.search(r'ratingCount":(\d+)', page_source)
-                        if match:
-                            rating_count = int(match.group(1))
-                        else:
-                            print_to_csv("Rating count not found in page source.")
-                    except Exception as e:
-                        print_to_csv(f"Error extracting rating count: {e}")
-
-                    # --- Extract Runtime ---
-                    try:
-                        runtime_text = self.driver.find_element(By.CSS_SELECTOR, 'p.text-link.text-footer').text
-                        match = re.search(r'(\d+)\s*mins', runtime_text)
-                        if match:
-                            runtime = int(match.group(1))
-                        else:
-                            runtime = None
-                            print_to_csv("Runtime not found in text-footer.")
-                    except Exception as e:
-                        runtime = None
-                        print_to_csv(f"Runtime not found: {e}")
-
+                    film_title = container.get_attribute('data-film-name')
+                    film_url = container.find_element(By.CSS_SELECTOR, 'a').get_attribute('href')
+                    
+                    # Get initial movie data
+                    response = self.processor.session.get(film_url)
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    
+                    # Increment total_titles only after we've successfully fetched the movie's data
                     self.total_titles += 1
+
+                    # Extract release year
+                    release_year_tag = soup.find('meta', property='og:title')
+                    release_year = None
+                    if release_year_tag:
+                        release_year_content = release_year_tag['content']
+                        release_year = release_year_content.split('(')[-1].strip(')')
+
+                    # Extract TMDb ID
+                    body_tag = soup.find('body')
+                    tmdb_id = body_tag.get('data-tmdb-id') if body_tag else None
+
+                    # Extract rating count
+                    rating_count = 0
+                    for script in soup.find_all('script'):
+                        if 'aggregateRating' in script.text:
+                            match = re.search(r'ratingCount":(\d+)', script.text)
+                            if match:
+                                rating_count = int(match.group(1))
+                                break
 
                     # Check 1: Rating count minimum
                     if rating_count < MIN_RATING_COUNT:
@@ -410,18 +376,19 @@ class LetterboxdScraper:
                         movie_identifier = (film_title.lower(), release_year)
                         if movie_identifier not in self.processor.added_movies:
                             # Process the approved movie
-                            self.process_approved_movie(film_title, release_year, tmdb_id, "whitelisted")
+                            self.process_approved_movie(film_title, release_year, tmdb_id, soup, "whitelisted")
                             print_to_csv(f"✅ {film_title} was added due to being whitelisted ({self.valid_movies_count + 1}/{MAX_MOVIES})")  # Updated reference
                             self.valid_movies_count += 1  # Increment count for whitelisted movies
                             continue  # Skip to the next movie
 
-                    # Check 3: Blacklist
+                    # Check 4: Blacklist
                     if self.processor.is_blacklisted(film_title, release_year):
                         print_to_csv(f"❌ {film_title} was not added due to being blacklisted.")
                         self.processor.rejected_data.append([film_title, release_year, tmdb_id, 'Blacklisted'])
                         continue
 
                     # Check 4: Runtime
+                    runtime = self.processor.extract_runtime(soup, film_title)
                     if runtime is None:
                         continue  # Skip this film entirely if runtime is None
                     if runtime < MIN_RUNTIME:
@@ -461,7 +428,7 @@ class LetterboxdScraper:
 
                     # If we reach here, the movie is approved
                     if len(self.processor.film_data) < MAX_MOVIES:  # Only add to filtered films if under MAX_MOVIES
-                        self.process_approved_movie(film_title, release_year, tmdb_id, "approved")
+                        self.process_approved_movie(film_title, release_year, tmdb_id, soup, "approved")
                         print_to_csv(f"✅ {film_title} was approved ({self.valid_movies_count + 1}/{MAX_MOVIES})")  # Updated reference
                         self.valid_movies_count += 1  # Increment count for approved movies
 
@@ -493,8 +460,9 @@ class LetterboxdScraper:
             print_to_csv(f"❌ {error_message}")
             self.log_error_to_csv(error_message)
 
-    def process_approved_movie(self, film_title: str, release_year: str, tmdb_id: str, approval_type: str):
-        if self.valid_movies_count >= MAX_MOVIES:
+    def process_approved_movie(self, film_title: str, release_year: str, tmdb_id: str, soup: BeautifulSoup, approval_type: str):
+        """Process an approved movie and extract all its metadata"""
+        if self.valid_movies_count >= MAX_MOVIES:  # Stop processing if we reached the cap for successful movies
             return
 
         movie_identifier = (film_title.lower(), release_year)
@@ -517,608 +485,87 @@ class LetterboxdScraper:
                 'Year': release_year,
                 'tmdbID': tmdb_id
             })
-            self.update_max_movies_2500_statistics(film_title, release_year, tmdb_id, self.driver)
+            self.update_max_movies_2500_statistics(film_title, release_year, tmdb_id, soup)
 
-        # Extract runtime using Selenium
-        runtime = None
-        try:
-            runtime_text = self.driver.find_element(By.CSS_SELECTOR, 'p.text-link.text-footer').text
-            match = re.search(r'(\d+)\s*mins', runtime_text)
-            if match:
-                runtime = int(match.group(1))
-        except Exception:
-            runtime = None
+        # Extract runtime
+        runtime = self.processor.extract_runtime(soup, film_title)
+        self.process_runtime_category(film_title, release_year, tmdb_id, runtime, soup)
 
-        self.process_runtime_category(film_title, release_year, tmdb_id, runtime, self.driver)
-        self.update_statistics_for_movie(film_title, release_year, tmdb_id, self.driver)
+        # Update statistics for this movie regardless of MAX_MOVIES
+        self.update_statistics_for_movie(film_title, release_year, tmdb_id, soup)
 
-    def update_max_movies_2500_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver):
+    def update_max_movies_2500_statistics(self, film_title: str, release_year: str, tmdb_id: str, soup: BeautifulSoup):
         """Update statistics for the given movie for MAX_MOVIES_2500."""
-        # Find the movie in film_data
-        movie_data = next((movie for movie in max_movies_2500_stats['film_data'] 
-                          if movie['Title'] == film_title and movie['Year'] == release_year), None)
-        
-        if not movie_data:
-            return
+        # Extract directors
+        director_elements = soup.select('span.directorlist a.contributor')
+        for director in director_elements:
+            director_name = director.get_text(strip=True)
+            if director_name:
+                max_movies_2500_stats['director_counts'][director_name] += 1
 
-        # Directors
-        try:
-            director_elements = driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
-            for director in director_elements:
-                director_name = director.text.strip()
-                if director_name:
-                    max_movies_2500_stats['director_counts'][director_name] += 1
-        except Exception:
-            pass
+        # Extract actors without roles
+        actor_elements = soup.select('#tab-cast .text-sluglist a.text-slug.tooltip')
+        for actor in actor_elements:
+            actor_name = actor.get_text(strip=True)
+            if actor_name:
+                max_movies_2500_stats['actor_counts'][actor_name] += 1
 
-        # Actors
-        try:
-            actor_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
-            for actor in actor_elements:
-                actor_name = actor.text.strip()
-                if actor_name:
-                    max_movies_2500_stats['actor_counts'][actor_name] += 1
-        except Exception:
-            pass
-
-        # Decade
-        try:
-            meta_tag = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
-            content = meta_tag.get_attribute('content')
-            if content and '(' in content and ')' in content:
+        # Extract decades
+        decade_elements = soup.select_one('meta[property="og:title"]')
+        if decade_elements:
+            content = decade_elements.get("content")
+            if content:
                 year = int(content.split('(')[-1].split(')')[0])
                 decade = (year // 10) * 10
                 max_movies_2500_stats['decade_counts'][decade] += 1
-        except Exception:
-            pass
-
-        # Genres - Only get main genres, not microgenres
-        try:
-            genre_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]')
-            genres = []
-            for genre in genre_elements:
-                genre_name = genre.get_attribute('textContent').strip()
-                if genre_name and not any(char in genre_name for char in ['…', 'Show All']):
-                    genres.append(genre_name)
-                    max_movies_2500_stats['genre_counts'][genre_name] += 1
-            movie_data['Genres'] = genres
-        except Exception:
-            pass
-
-        # Studios
-        try:
-            studio_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/studio/"]')
-            studios = []
-            for studio in studio_elements:
-                studio_name = studio.get_attribute('textContent').strip()
-                if studio_name:
-                    studios.append(studio_name)
-                    max_movies_2500_stats['studio_counts'][studio_name] += 1
-            movie_data['Studios'] = studios
-        except Exception:
-            pass
-
-        # Languages
-        try:
-            language_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/language/"]')
-            languages = []
-            for language in language_elements:
-                language_name = language.get_attribute('textContent').strip()
-                if language_name:
-                    languages.append(language_name)
-                    max_movies_2500_stats['language_counts'][language_name] += 1
-            movie_data['Languages'] = languages
-        except Exception:
-            pass
-
-        # Countries
-        try:
-            country_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]')
-            countries = []
-            for country in country_elements:
-                country_name = country.get_attribute('textContent').strip()
-                if country_name:
-                    countries.append(country_name)
-                    max_movies_2500_stats['country_counts'][country_name] += 1
-            movie_data['Countries'] = countries
-        except Exception:
-            pass
-
-    def process_runtime_category(self, film_title: str, release_year: str, tmdb_id: str, runtime: int, driver):
-        """Process the runtime category for a movie and extract all its metadata"""
-        categories = []  # Initialize a list to hold categories
-
-        if runtime < 91:
-            categories.append('90_Minutes_or_Less')
-        if runtime < 121:
-            categories.append('120_Minutes_or_Less')
-        if runtime > 179:
-            categories.append('180_Minutes_or_Greater')
-        if runtime > 239:
-            categories.append('240_Minutes_or_Greater')
-
-        if not categories:
-            return  # Not in any category we care about
-
-        # Add the movie to the film_data for each category
-        for category in categories:
-            runtime_stats[category]['film_data'].append({
-                'Title': film_title,
-                'Year': release_year,
-                'tmdbID': tmdb_id
-            })
-
-            # Now check if we should update statistics
-            max_movies_limit = (
-                MAX_180 if category == '180_Minutes_or_Greater' else
-                MAX_240 if category == '240_Minutes_or_Greater' else
-                MAX_MOVIES_RUNTIME
-            )
-            if len(runtime_stats[category]['film_data']) <= max_movies_limit:
-                self.update_runtime_statistics(film_title, release_year, tmdb_id, driver, category)
-
-    def update_runtime_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver, category: str):
-        """Update statistics for the given runtime category."""
-        if (len(runtime_stats[category]['film_data']) - 1) >= MAX_MOVIES_RUNTIME:
-            return  # Skip updating if we already have enough movies
-
-        # Extract directors
-        try:
-            director_elements = driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
-            for director in director_elements:
-                director_name = director.text.strip()
-                if director_name:
-                    runtime_stats[category]['director_counts'][director_name] += 1
-        except Exception:
-            pass
-
-        # Extract actors without roles
-        try:
-            actor_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
-            for actor in actor_elements:
-                actor_name = actor.text.strip()
-                if actor_name:
-                    runtime_stats[category]['actor_counts'][actor_name] += 1
-        except Exception:
-            pass
-
-        # Extract decades
-        try:
-            meta_tag = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
-            content = meta_tag.get_attribute('content')
-            if content and '(' in content and ')' in content:
-                year = int(content.split('(')[-1].split(')')[0])
-                decade = (year // 10) * 10
-                runtime_stats[category]['decade_counts'][decade] += 1
-        except Exception:
-            pass
 
         # Extract genres
-        try:
-            # Try multiple possible selectors for genres
-            genre_selectors = [
-                '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]',
-                'a[href*="/films/genre/"]'
-            ]
-            
-            genres = []
-            for selector in genre_selectors:
-                genre_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if genre_elements:
-                    genres = [el.get_attribute('textContent').strip() for el in genre_elements if el.get_attribute('textContent').strip()]
-                    if genres:
-                        break
-            
-            # Filter out microgenres
-            macro_genres = ['Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama', 
-                           'Family', 'Fantasy', 'History', 'Horror', 'Music', 'Mystery', 'Romance', 
-                           'Science Fiction', 'Thriller', 'War', 'Western']
-            genres = [g for g in genres if g in macro_genres]
-            
-            for genre in genres:
-                runtime_stats[category]['genre_counts'][genre] += 1
-        except Exception as e:
-            print_to_csv(f"Error extracting genres: {str(e)}")
+        for heading in soup.select('#tab-genres h3'):
+            if "Genre" in heading.get_text() or "Genres" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    genre_elements = sluglist.select('a.text-slug')
+                    for genre in genre_elements:
+                        genre_name = genre.get_text(strip=True)
+                        if genre_name:
+                            max_movies_2500_stats['genre_counts'][genre_name] += 1
 
         # Extract studios
-        try:
-            # Try multiple possible selectors for studios
-            studio_selectors = [
-                '#tab-details .text-sluglist a.text-slug[href*="/studio/"]',
-                'a[href*="/studio/"]',
-                '.text-sluglist a.text-slug[href*="/studio/"]'
-            ]
-            
-            studios = []
-            for selector in studio_selectors:
-                studio_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if studio_elements:
-                    
-                    studios = [el.get_attribute('textContent').strip() for el in studio_elements if el.get_attribute('textContent').strip()]
-                    if studios:
-                        break
-            
-            for studio in studios:
-                runtime_stats[category]['studio_counts'][studio] += 1
-        except Exception as e:
-            print_to_csv(f"Error extracting studios: {str(e)}")
+        for heading in soup.select('#tab-details h3'):
+            if "Studio" in heading.get_text() or "Studios" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    studio_elements = sluglist.select('a.text-slug')
+                    for studio in studio_elements:
+                        studio_name = studio.get_text(strip=True)
+                        if studio_name:
+                            max_movies_2500_stats['studio_counts'][studio_name] += 1
 
         # Extract languages
-        try:
-            language_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/language/"]')
-            for language in language_elements:
-                language_name = language.text.strip()
-                if language_name:
-                    runtime_stats[category]['language_counts'][language_name] += 1
-        except Exception:
-            pass
+        movie_languages = set()
+        for heading in soup.select('#tab-details h3'):
+            if any(lang in heading.get_text() for lang in ["Language", "Primary Language", "Languages", "Primary Languages"]):
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    language_elements = sluglist.select('a.text-slug')
+                    for language in language_elements:
+                        language_name = language.get_text(strip=True)
+                        if language_name:
+                            movie_languages.add(language_name)
+
+        for language_name in movie_languages:
+            max_movies_2500_stats['language_counts'][language_name] += 1
 
         # Extract countries
-        try:
-            # Try multiple possible selectors for countries
-            country_selectors = [
-                '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]',
-                'a[href*="/films/country/"]',
-                '.text-sluglist a.text-slug[href*="/films/country/"]'
-            ]
-            
-            countries = []
-            for selector in country_selectors:
-                country_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if country_elements:
-                    
-                    countries = [el.get_attribute('textContent').strip() for el in country_elements if el.get_attribute('textContent').strip()]
-                    if countries:
-                        break
-            
-            for country in countries:
-                # Check if the country belongs to any continent
-                for continent, country_list in CONTINENTS_COUNTRIES.items():
-                    if country in country_list:
-                        if len(continent_stats[continent]['film_data']) < MAX_MOVIES_CONTINENT:
-                            continent_stats[continent]['film_data'].append({
-                                'Title': film_title,
-                                'Year': release_year,
-                                'tmdbID': tmdb_id
-                            })
-                            self.update_continent_statistics(continent, driver)
-                        break
-                runtime_stats[category]['country_counts'][country] += 1
-        except Exception as e:
-            print_to_csv(f"Error extracting countries: {str(e)}")
-
-    def update_statistics_for_movie(self, film_title: str, release_year: str, tmdb_id: str, driver):
-        """Update statistics for the given movie."""
-        # Extract directors
-        try:
-            director_elements = driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
-            for director in director_elements:
-                director_name = director.text.strip()
-                if director_name:
-                    self.processor.director_counts[director_name] = self.processor.director_counts.get(director_name, 0) + 1
-        except Exception:
-            pass
-
-        # Extract actors without roles
-        try:
-            actor_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
-            for actor in actor_elements:
-                actor_name = actor.text.strip()
-                if actor_name:
-                    self.processor.actor_counts[actor_name] = self.processor.actor_counts.get(actor_name, 0) + 1
-        except Exception:
-            pass
-
-        # Extract decades
-        try:
-            meta_tag = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
-            content = meta_tag.get_attribute('content')
-            if content and '(' in content and ')' in content:
-                year = int(content.split('(')[-1].split(')')[0])
-                decade = (year // 10) * 10
-                self.processor.decade_counts[decade] = self.processor.decade_counts.get(decade, 0) + 1
-        except Exception:
-            pass
-
-        # Extract genres with debug prints
-        try:
-            # Try multiple possible selectors for genres
-            genre_selectors = [
-                '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]',
-                'a[href*="/films/genre/"]'
-            ]
-            
-            genres = []
-            for selector in genre_selectors:
-                genre_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if genre_elements:
-                    
-                    genres = [el.get_attribute('textContent').strip() for el in genre_elements if el.get_attribute('textContent').strip()]
-                    if genres:
-                        break
-            
-            # Filter out microgenres
-            macro_genres = ['Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama', 
-                           'Family', 'Fantasy', 'History', 'Horror', 'Music', 'Mystery', 'Romance', 
-                           'Science Fiction', 'Thriller', 'War', 'Western']
-            genres = [g for g in genres if g in macro_genres]
-            
-            for genre in genres:
-                self.processor.genre_counts[genre] = self.processor.genre_counts.get(genre, 0) + 1
-        except Exception as e:
-            print_to_csv(f"Error extracting genres: {str(e)}")
-
-        # Extract studios with debug prints
-        try:
-            # Try multiple possible selectors for studios
-            studio_selectors = [
-                '#tab-details .text-sluglist a.text-slug[href*="/studio/"]',
-                'a[href*="/studio/"]',
-                '.text-sluglist a.text-slug[href*="/studio/"]'
-            ]
-            
-            studios = []
-            for selector in studio_selectors:
-                studio_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if studio_elements:
-                    
-                    studios = [el.get_attribute('textContent').strip() for el in studio_elements if el.get_attribute('textContent').strip()]
-                    if studios:
-                        break
-            
-            for studio in studios:
-                self.processor.studio_counts[studio] = self.processor.studio_counts.get(studio, 0) + 1
-        except Exception as e:
-            print_to_csv(f"Error extracting studios: {str(e)}")
-
-        # Extract languages
-        try:
-            language_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug')
-            for language in language_elements:
-                language_name = language.text.strip()
-                if language_name:
-                    self.processor.language_counts[language_name] = self.processor.language_counts.get(language_name, 0) + 1
-        except Exception:
-            pass
-
-        # Extract countries with debug prints
-        try:
-            # Try multiple possible selectors for countries
-            country_selectors = [
-                '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]',
-                'a[href*="/films/country/"]',
-                '.text-sluglist a.text-slug[href*="/films/country/"]'
-            ]
-            
-            countries = []
-            for selector in country_selectors:
-                country_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if country_elements:
-                    
-                    countries = [el.get_attribute('textContent').strip() for el in country_elements if el.get_attribute('textContent').strip()]
-                    if countries:
-                        break
-            
-            for country in countries:
-                # Check if the country belongs to any continent
-                for continent, country_list in CONTINENTS_COUNTRIES.items():
-                    if country in country_list:
-                        if len(continent_stats[continent]['film_data']) < MAX_MOVIES_CONTINENT:
-                            continent_stats[continent]['film_data'].append({
-                                'Title': film_title,
-                                'Year': release_year,
-                                'tmdbID': tmdb_id
-                            })
-                            self.update_continent_statistics(continent, driver)
-                        break
-                self.processor.country_counts[country] = self.processor.country_counts.get(country, 0) + 1
-        except Exception as e:
-            print_to_csv(f"Error extracting countries: {str(e)}")
-
-        # Check if the release year is before 1968 for MPAA ratings
-        release_date_str = f"01 {release_year}"  # Assuming the release date is the first of the year for comparison
-        release_date = datetime.strptime(release_date_str, "%d %Y")  # Convert to datetime object
-        cutoff_date = datetime(1968, 11, 1)  # Define the cutoff date
-
-        if release_date < cutoff_date:
-            mpaa_rating = None  # Do not assign an MPAA rating if the release date is before November 1, 1968
-        else:
-            mpaa_rating = extract_mpaa_rating(driver)
-
-        if mpaa_rating in MPAA_RATINGS:
-            # Add to the corresponding MPAA rating list regardless of MAX_MOVIES
-            mpaa_stats[mpaa_rating]['film_data'].append({
-                'Title': film_title,
-                'Year': release_year,
-                'tmdbID': tmdb_id
-            })
-            # Update counts for statistics
-            self.update_statistics(mpaa_rating, self.driver)
-
-    def update_continent_statistics(self, continent: str, driver):
-        """Update statistics for the given continent."""
-        # Determine the max limit based on the continent
-        max_movies_limit = (
-            MAX_MOVIES_AFRICA if continent == 'Africa' else
-            MAX_MOVIES_OCEANIA if continent == 'Oceania' else
-            MAX_MOVIES_SOUTH_AMERICA if continent == 'South America' else
-            MAX_MOVIES_CONTINENT
-        )
-
-        # Check if the movie is in the top max_movies_limit
-        if len(continent_stats[continent]['film_data']) > max_movies_limit:
-            return  # Skip updating if we already have enough movies
-
-        # Extract directors
-        try:
-            director_elements = driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
-            for director in director_elements:
-                director_name = director.text.strip()
-                if director_name:
-                    continent_stats[continent]['director_counts'][director_name] += 1
-        except Exception:
-            pass
-
-        # Extract actors without roles
-        try:
-            actor_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
-            for actor in actor_elements:
-                actor_name = actor.text.strip()
-                if actor_name:
-                    continent_stats[continent]['actor_counts'][actor_name] += 1
-        except Exception:
-            pass
-
-        # Extract decades
-        try:
-            meta_tag = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
-            content = meta_tag.get_attribute('content')
-            if content and '(' in content and ')' in content:
-                year = int(content.split('(')[-1].split(')')[0])
-                decade = (year // 10) * 10
-                continent_stats[continent]['decade_counts'][decade] += 1
-        except Exception:
-            pass
-
-        # Extract genres
-        try:
-            # Try multiple possible selectors for genres
-            genre_selectors = [
-                '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]',
-                'a[href*="/films/genre/"]'
-            ]
-            
-            genres = []
-            for selector in genre_selectors:
-                genre_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if genre_elements:
-                    genres = [el.get_attribute('textContent').strip() for el in genre_elements if el.get_attribute('textContent').strip()]
-                    if genres:
-                        break
-            
-            # Filter out microgenres
-            macro_genres = ['Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama', 
-                           'Family', 'Fantasy', 'History', 'Horror', 'Music', 'Mystery', 'Romance', 
-                           'Science Fiction', 'Thriller', 'War', 'Western']
-            genres = [g for g in genres if g in macro_genres]
-            
-            for genre in genres:
-                continent_stats[continent]['genre_counts'][genre] += 1
-        except Exception:
-            pass
-
-        # Extract languages
-        try:
-            language_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/language/"]')
-            for language in language_elements:
-                language_name = language.text.strip()
-                if language_name:
-                    continent_stats[continent]['language_counts'][language_name] += 1
-        except Exception:
-            pass
-
-        # Extract studios
-        try:
-            studio_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug')
-            for studio in studio_elements:
-                studio_name = studio.text.strip()
-                if studio_name:
-                    continent_stats[continent]['studio_counts'][studio_name] += 1
-        except Exception:
-            pass
-
-        # Extract countries
-        try:
-            country_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug')
-            for country in country_elements:
-                country_name = country.text.strip()
-                if country_name:
-                    continent_stats[continent]['country_counts'][country_name] += 1
-        except Exception:
-            pass
-
-    def update_statistics(self, mpaa_rating: str, driver):
-        """Update statistics for the given MPAA rating."""
-        # Determine the max limit based on the MPAA rating
-        max_movies_limit = (
-            MAX_MOVIES_G if mpaa_rating == 'G' else
-            MAX_MOVIES_NC17 if mpaa_rating == 'NC-17' else
-            MAX_MOVIES_MPAA
-        )
-
-        # Check if the movie is in the top max_movies_limit
-        if len(mpaa_stats[mpaa_rating]['film_data']) > max_movies_limit:
-            return  # Skip updating if we already have enough movies
-
-        # Extract directors
-        try:
-            director_elements = driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
-            for director in director_elements:
-                director_name = director.text.strip()
-                if director_name:
-                    mpaa_stats[mpaa_rating]['director_counts'][director_name] += 1
-        except Exception:
-            pass
-
-        # Extract actors without roles
-        try:
-            actor_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
-            for actor in actor_elements:
-                actor_name = actor.text.strip()
-                if actor_name:
-                    mpaa_stats[mpaa_rating]['actor_counts'][actor_name] += 1
-        except Exception:
-            pass
-
-        # Extract decades
-        try:
-            meta_tag = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
-            content = meta_tag.get_attribute('content')
-            if content and '(' in content and ')' in content:
-                year = int(content.split('(')[-1].split(')')[0])
-                decade = (year // 10) * 10
-                mpaa_stats[mpaa_rating]['decade_counts'][decade] += 1
-        except Exception:
-            pass
-
-        # Extract genres
-        try:
-            genre_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-genres .text-sluglist a.text-slug')
-            genres = [el.text.strip() for el in genre_elements]
-            for genre in genres:
-                mpaa_stats[mpaa_rating]['genre_counts'][genre] += 1
-        except Exception:
-            pass
-
-        # Extract studios
-        try:
-            studio_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug')
-            for studio in studio_elements:
-                studio_name = studio.text.strip()
-                if studio_name:
-                    mpaa_stats[mpaa_rating]['studio_counts'][studio_name] += 1
-        except Exception:
-            pass
-
-        # Extract languages
-        try:
-            language_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/language/"]')
-            for language in language_elements:
-                language_name = language.text.strip()
-                if language_name:
-                    mpaa_stats[mpaa_rating]['language_counts'][language_name] += 1
-        except Exception:
-            pass
-
-        # Extract countries
-        try:
-            country_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug')
-            for country in country_elements:
-                country_name = country.text.strip()
-                if country_name:
-                    mpaa_stats[mpaa_rating]['country_counts'][country_name] += 1
-        except Exception:
-            pass
+        for heading in soup.select('#tab-details h3'):
+            if "Country" in heading.get_text() or "Countries" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    country_elements = sluglist.select('a.text-slug')
+                    for country in country_elements:
+                        country_name = country.get_text(strip=True)
+                        if country_name:
+                            max_movies_2500_stats['country_counts'][country_name] += 1
 
     def save_max_movies_2500_results(self):
         """Save results for MAX_MOVIES_2500."""
@@ -1128,7 +575,6 @@ class LetterboxdScraper:
             start_idx = i * CHUNK_SIZE
             end_idx = min((i + 1) * CHUNK_SIZE, len(max_movies_2500_stats['film_data']))
             chunk_df = pd.DataFrame(max_movies_2500_stats['film_data'][start_idx:end_idx])
-            # Only include Title, Year, and tmdbID in the output
             chunk_df = chunk_df[['Title', 'Year', 'tmdbID']]
             output_path = os.path.join(BASE_DIR, f'rating_filtered_movie_titles{i+1}.csv')
             chunk_df.to_csv(output_path, index=False, encoding='utf-8')
@@ -1182,6 +628,390 @@ class LetterboxdScraper:
                     file.write("\n")
             file.write("If you notice any movies you believe should/should not be included just let me know!")
             
+    def update_statistics_for_movie(self, film_title: str, release_year: str, tmdb_id: str, soup: BeautifulSoup):
+        """Update statistics for the given movie."""
+        # Extract directors
+        director_elements = soup.select('span.directorlist a.contributor')
+        for director in director_elements:
+            director_name = director.get_text(strip=True)
+            if director_name:
+                self.processor.director_counts[director_name] = self.processor.director_counts.get(director_name, 0) + 1
+
+        # Extract actors without roles
+        actor_elements = soup.select('#tab-cast .text-sluglist a.text-slug.tooltip')
+        for actor in actor_elements:
+            actor_name = actor.get_text(strip=True)
+            if actor_name:
+                self.processor.actor_counts[actor_name] = self.processor.actor_counts.get(actor_name, 0) + 1
+
+        # Extract decades
+        decade_elements = soup.select_one('meta[property="og:title"]')
+        if decade_elements:
+            content = decade_elements.get("content")
+            if content:
+                year = int(content.split('(')[-1].split(')')[0])
+                decade = (year // 10) * 10
+                self.processor.decade_counts[decade] = self.processor.decade_counts.get(decade, 0) + 1
+
+        # Extract genres
+        for heading in soup.select('#tab-genres h3'):
+            if "Genre" in heading.get_text() or "Genres" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    genre_elements = sluglist.select('a.text-slug')
+                    for genre in genre_elements:
+                        genre_name = genre.get_text(strip=True)
+                        if genre_name:
+                            self.processor.genre_counts[genre_name] = self.processor.genre_counts.get(genre_name, 0) + 1
+
+        # Extract studios
+        for heading in soup.select('#tab-details h3'):
+            if "Studio" in heading.get_text() or "Studios" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    studio_elements = sluglist.select('a.text-slug')
+                    for studio in studio_elements:
+                        studio_name = studio.get_text(strip=True)
+                        if studio_name:
+                            self.processor.studio_counts[studio_name] = self.processor.studio_counts.get(studio_name, 0) + 1
+
+        # Extract languages
+        movie_languages = set()  # Use a set to store unique languages for this movie
+        for heading in soup.select('#tab-details h3'):
+            if any(lang in heading.get_text() for lang in ["Language", "Primary Language", "Languages", "Primary Languages"]):
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    language_elements = sluglist.select('a.text-slug')
+                    for language in language_elements:
+                        language_name = language.get_text(strip=True)
+                        if language_name:
+                            movie_languages.add(language_name)  # Add to set of languages for this movie
+
+        # Update the language counts only once per language per movie
+        for language_name in movie_languages:
+            self.processor.language_counts[language_name] = self.processor.language_counts.get(language_name, 0) + 1
+
+        # Extract countries
+        added_to_continent = set()  # Track which continents the film has been added to
+        for heading in soup.select('#tab-details h3'):
+            if "Country" in heading.get_text() or "Countries" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    country_elements = sluglist.select('a.text-slug')
+                    for country in country_elements:
+                        country_name = country.get_text(strip=True)
+                        if country_name:
+                            # Check if the country belongs to any continent
+                            for continent, countries in CONTINENTS_COUNTRIES.items():
+                                if country_name in countries and continent not in added_to_continent:
+                                    if len(continent_stats[continent]['film_data']) < MAX_MOVIES_CONTINENT:
+                                        continent_stats[continent]['film_data'].append({
+                                            'Title': film_title,
+                                            'Year': release_year,
+                                            'tmdbID': tmdb_id
+                                        })
+                                        self.update_continent_statistics(continent, soup)
+                                        added_to_continent.add(continent)  # Mark the continent as processed
+                                    break
+
+        # Check if the release year is before 1968 for MPAA ratings
+        release_date_str = f"01 {release_year}"  # Assuming the release date is the first of the year for comparison
+        release_date = datetime.strptime(release_date_str, "%d %Y")  # Convert to datetime object
+        cutoff_date = datetime(1968, 11, 1)  # Define the cutoff date
+
+        if release_date < cutoff_date:
+            mpaa_rating = None  # Do not assign an MPAA rating if the release date is before November 1, 1968
+        else:
+            mpaa_rating = extract_mpaa_rating(soup)
+
+        if mpaa_rating in MPAA_RATINGS:
+            # Add to the corresponding MPAA rating list regardless of MAX_MOVIES
+            mpaa_stats[mpaa_rating]['film_data'].append({
+                'Title': film_title,
+                'Year': release_year,
+                'tmdbID': tmdb_id
+            })
+            # Update counts for statistics
+            self.update_statistics(mpaa_rating, soup)
+
+    def process_runtime_category(self, film_title: str, release_year: str, tmdb_id: str, runtime: int, soup: BeautifulSoup):
+        """Process the runtime category for a movie and extract all its metadata"""
+        categories = []  # Initialize a list to hold categories
+
+        if runtime < 91:
+            categories.append('90_Minutes_or_Less')
+        if runtime < 121:
+            categories.append('120_Minutes_or_Less')
+        if runtime > 179:
+            categories.append('180_Minutes_or_Greater')
+        if runtime > 239:
+            categories.append('240_Minutes_or_Greater')
+
+        if not categories:
+            return  # Not in any category we care about
+
+        # Add the movie to the film_data for each category
+        for category in categories:
+            runtime_stats[category]['film_data'].append({
+                'Title': film_title,
+                'Year': release_year,
+                'tmdbID': tmdb_id
+            })
+
+            # Now check if we should update statistics
+            max_movies_limit = (
+                MAX_180 if category == '180_Minutes_or_Greater' else
+                MAX_240 if category == '240_Minutes_or_Greater' else
+                MAX_MOVIES_RUNTIME
+            )
+            if len(runtime_stats[category]['film_data']) <= max_movies_limit:
+                self.update_runtime_statistics(category, soup)
+
+    def update_runtime_statistics(self, category: str, soup: BeautifulSoup):
+        """Update statistics for the given runtime category."""
+        if (len(runtime_stats[category]['film_data']) - 1) >= MAX_MOVIES_RUNTIME:
+            return  # Skip updating if we already have enough movies
+
+        # Extract directors
+        director_elements = soup.select('span.directorlist a.contributor')
+        for director in director_elements:
+            director_name = director.get_text(strip=True)
+            if director_name:
+                runtime_stats[category]['director_counts'][director_name] += 1
+
+        # Extract actors without roles
+        actor_elements = soup.select('#tab-cast .text-sluglist a.text-slug.tooltip')
+        for actor in actor_elements:
+            actor_name = actor.get_text(strip=True)
+            if actor_name:
+                runtime_stats[category]['actor_counts'][actor_name] += 1
+
+        # Extract decades
+        decade_elements = soup.select_one('meta[property="og:title"]')
+        if decade_elements:
+            content = decade_elements.get("content")
+            if content:
+                year = int(content.split('(')[-1].split(')')[0])
+                decade = (year // 10) * 10
+                runtime_stats[category]['decade_counts'][decade] += 1
+
+        # Extract genres
+        for heading in soup.select('#tab-genres h3'):
+            if "Genre" in heading.get_text() or "Genres" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    genre_elements = sluglist.select('a.text-slug')
+                    for genre in genre_elements:
+                        genre_name = genre.get_text(strip=True)
+                        if genre_name:
+                            runtime_stats[category]['genre_counts'][genre_name] += 1
+
+        # Extract studios
+        for heading in soup.select('#tab-details h3'):
+            if "Studio" in heading.get_text() or "Studios" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    studio_elements = sluglist.select('a.text-slug')
+                    for studio in studio_elements:
+                        studio_name = studio.get_text(strip=True)
+                        if studio_name:
+                            runtime_stats[category]['studio_counts'][studio_name] += 1
+
+        # Extract languages
+        movie_languages = set()
+        for heading in soup.select('#tab-details h3'):
+            if any(lang in heading.get_text() for lang in ["Language", "Primary Language", "Languages", "Primary Languages"]):
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    language_elements = sluglist.select('a.text-slug')
+                    for language in language_elements:
+                        language_name = language.get_text(strip=True)
+                        if language_name:
+                            movie_languages.add(language_name)
+
+        for language_name in movie_languages:
+            runtime_stats[category]['language_counts'][language_name] += 1
+
+        # Extract countries
+        for heading in soup.select('#tab-details h3'):
+            if "Country" in heading.get_text() or "Countries" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    country_elements = sluglist.select('a.text-slug')
+                    for country in country_elements:
+                        country_name = country.get_text(strip=True)
+                        if country_name:
+                            runtime_stats[category]['country_counts'][country_name] += 1
+
+    def update_statistics(self, mpaa_rating: str, soup: BeautifulSoup):
+        """Update statistics for the given MPAA rating."""
+        # Determine the max limit based on the MPAA rating
+        max_movies_limit = (
+            MAX_MOVIES_G if mpaa_rating == 'G' else
+            MAX_MOVIES_NC17 if mpaa_rating == 'NC-17' else
+            MAX_MOVIES_MPAA
+        )
+
+        # Check if the movie is in the top max_movies_limit
+        if len(mpaa_stats[mpaa_rating]['film_data']) > max_movies_limit:
+            return  # Skip updating if we already have enough movies
+
+        # Extract directors
+        director_elements = soup.select('span.directorlist a.contributor')
+        for director in director_elements:
+            director_name = director.get_text(strip=True)
+            if director_name:
+                mpaa_stats[mpaa_rating]['director_counts'][director_name] += 1
+
+        # Extract actors without roles
+        actor_elements = soup.select('#tab-cast .text-sluglist a.text-slug.tooltip')
+        for actor in actor_elements:
+            actor_name = actor.get_text(strip=True)
+            if actor_name:
+                mpaa_stats[mpaa_rating]['actor_counts'][actor_name] += 1
+
+        # Extract decades
+        decade_elements = soup.select_one('meta[property="og:title"]')
+        if decade_elements:
+            content = decade_elements.get("content")
+            if content:
+                year = int(content.split('(')[-1].split(')')[0])
+                decade = (year // 10) * 10
+                mpaa_stats[mpaa_rating]['decade_counts'][decade] += 1
+
+        # Extract genres
+        for heading in soup.select('#tab-genres h3'):
+            if "Genre" in heading.get_text() or "Genres" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    genre_elements = sluglist.select('a.text-slug')
+                    for genre in genre_elements:
+                        genre_name = genre.get_text(strip=True)
+                        if genre_name:
+                            mpaa_stats[mpaa_rating]['genre_counts'][genre_name] += 1
+
+        # Extract studios
+        for heading in soup.select('#tab-details h3'):
+            if "Studio" in heading.get_text() or "Studios" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    studio_elements = sluglist.select('a.text-slug')
+                    for studio in studio_elements:
+                        studio_name = studio.get_text(strip=True)
+                        if studio_name:
+                            mpaa_stats[mpaa_rating]['studio_counts'][studio_name] += 1
+
+        # Extract languages
+        movie_languages = set()
+        for heading in soup.select('#tab-details h3'):
+            if any(lang in heading.get_text() for lang in ["Language", "Primary Language", "Languages", "Primary Languages"]):
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    language_elements = sluglist.select('a.text-slug')
+                    for language in language_elements:
+                        language_name = language.get_text(strip=True)
+                        if language_name:
+                            movie_languages.add(language_name)
+        
+        for language_name in movie_languages:
+            mpaa_stats[mpaa_rating]['language_counts'][language_name] += 1
+
+        # Extract countries
+        for heading in soup.select('#tab-details h3'):
+            if "Country" in heading.get_text() or "Countries" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    country_elements = sluglist.select('a.text-slug')
+                    for country in country_elements:
+                        country_name = country.get_text(strip=True)
+                        if country_name:
+                            mpaa_stats[mpaa_rating]['country_counts'][country_name] += 1
+
+    def update_continent_statistics(self, continent: str, soup: BeautifulSoup):
+        """Update statistics for the given continent."""
+        # Determine the max limit based on the continent
+        max_movies_limit = (
+            MAX_MOVIES_AFRICA if continent == 'Africa' else
+            MAX_MOVIES_OCEANIA if continent == 'Oceania' else
+            MAX_MOVIES_SOUTH_AMERICA if continent == 'South America' else
+            MAX_MOVIES_CONTINENT
+        )
+
+        # Check if the movie is in the top max_movies_limit
+        if len(continent_stats[continent]['film_data']) > max_movies_limit:
+            return  # Skip updating if we already have enough movies
+
+        # Extract directors
+        director_elements = soup.select('span.directorlist a.contributor')
+        for director in director_elements:
+            director_name = director.get_text(strip=True)
+            if director_name:
+                continent_stats[continent]['director_counts'][director_name] += 1
+
+        # Extract actors without roles
+        actor_elements = soup.select('#tab-cast .text-sluglist a.text-slug.tooltip')
+        for actor in actor_elements:
+            actor_name = actor.get_text(strip=True)
+            if actor_name:
+                continent_stats[continent]['actor_counts'][actor_name] += 1
+
+        # Extract decades
+        decade_elements = soup.select_one('meta[property="og:title"]')
+        if decade_elements:
+            content = decade_elements.get("content")
+            if content:
+                year = int(content.split('(')[-1].split(')')[0])
+                decade = (year // 10) * 10
+                continent_stats[continent]['decade_counts'][decade] += 1
+
+        # Extract genres
+        for heading in soup.select('#tab-genres h3'):
+            if "Genre" in heading.get_text() or "Genres" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    genre_elements = sluglist.select('a.text-slug')
+                    for genre in genre_elements:
+                        genre_name = genre.get_text(strip=True)
+                        if genre_name:
+                            continent_stats[continent]['genre_counts'][genre_name] += 1
+
+        # Extract studios
+        for heading in soup.select('#tab-details h3'):
+            if "Studio" in heading.get_text() or "Studios" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    studio_elements = sluglist.select('a.text-slug')
+                    for studio in studio_elements:
+                        studio_name = studio.get_text(strip=True)
+                        if studio_name:
+                            continent_stats[continent]['studio_counts'][studio_name] += 1
+
+        # Extract languages
+        movie_languages = set()
+        for heading in soup.select('#tab-details h3'):
+            if any(lang in heading.get_text() for lang in ["Language", "Primary Language", "Languages", "Primary Languages"]):
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    language_elements = sluglist.select('a.text-slug')
+                    for language in language_elements:
+                        language_name = language.get_text(strip=True)
+                        if language_name:
+                            movie_languages.add(language_name)
+
+        for language_name in movie_languages:
+            continent_stats[continent]['language_counts'][language_name] += 1
+
+        # Extract countries
+        for heading in soup.select('#tab-details h3'):
+            if "Country" in heading.get_text() or "Countries" in heading.get_text():
+                sluglist = heading.find_next_sibling(class_='text-sluglist')
+                if sluglist:
+                    country_elements = sluglist.select('a.text-slug')
+                    for country in country_elements:
+                        country_name = country.get_text(strip=True)
+                        if country_name:
+                            continent_stats[continent]['country_counts'][country_name] += 1
+
     def save_continent_results(self):
         """Save results for each continent."""
         category_display_names = {
