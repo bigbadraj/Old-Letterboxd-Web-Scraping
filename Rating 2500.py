@@ -18,6 +18,7 @@ from urllib3.util import Retry
 from typing import Dict, List, Set, Tuple, Optional
 from dataclasses import dataclass
 from collections import defaultdict
+import unicodedata
 
 # Define a custom print function
 def print_to_csv(message: str):
@@ -152,6 +153,9 @@ class RequestsSession:
     def get(self, url: str, **kwargs) -> requests.Response:
         return self.session.get(url, **kwargs)
 
+def normalize_text(text):
+    return unicodedata.normalize('NFKC', str(text)).strip()
+
 class MovieProcessor:
     def __init__(self):
         self.session = RequestsSession()
@@ -171,6 +175,12 @@ class MovieProcessor:
         self.studio_counts: Dict[str, int] = {}
         self.language_counts: Dict[str, int] = {}
         self.country_counts: Dict[str, int] = {}
+
+        # Normalize titles and years in whitelist and blacklist
+        self.whitelist['Title'] = self.whitelist['Title'].apply(normalize_text)
+        self.whitelist['Year'] = self.whitelist['Year'].astype(str).str.strip()
+        self.blacklist['Title'] = self.blacklist['Title'].apply(normalize_text)
+        self.blacklist['Year'] = self.blacklist['Year'].astype(str).str.strip()
 
     def fetch_tmdb_details(self, tmdb_id: str) -> Tuple[List[str], List[str]]:
         movie_url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=keywords"
@@ -195,12 +205,20 @@ class MovieProcessor:
             print_to_csv(f"⚫ {film_title} ({release_year}) added to blacklist due to: {reason}")
 
     def is_whitelisted(self, film_title: str, release_year: str) -> bool:
-        return any((film_title.lower() == str(row['Title']).lower() and 
-                   float(release_year) == row['Year']) for _, row in self.whitelist.iterrows())
+        film_title = normalize_text(film_title)
+        release_year = str(release_year).strip()
+        return any(
+            (film_title.lower() == str(row['Title']).lower() and release_year == row['Year'])
+            for _, row in self.whitelist.iterrows()
+        )
 
     def is_blacklisted(self, film_title: str, release_year: str) -> bool:
-        return any((film_title.lower() == str(row['Title']).lower() and 
-                   float(release_year) == row['Year']) for _, row in self.blacklist.iterrows())
+        film_title = normalize_text(film_title)
+        release_year = str(release_year).strip()
+        return any(
+            (film_title.lower() == str(row['Title']).lower() and release_year == row['Year'])
+            for _, row in self.blacklist.iterrows()
+        )
 
     @staticmethod
     def extract_runtime(soup: BeautifulSoup, film_title: str) -> Optional[int]:
@@ -436,7 +454,6 @@ class LetterboxdScraper:
 
                 print_to_csv(f"\n{f'Completed Page {self.page_number}':=^100}")
                 self.page_number += 1
-                time.sleep(random.uniform(2, 4))
 
         except Exception as e:
             error_message = f"An unexpected error occurred: {str(e)}"
