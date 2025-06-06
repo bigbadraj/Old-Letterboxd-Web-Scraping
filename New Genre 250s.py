@@ -993,7 +993,6 @@ class LetterboxdScraper:
                         runtime = int(match.group(1))
                 except Exception as e:
                     print_to_csv(f"Error extracting runtime: {str(e)}")
-                    runtime = None
 
                 # Extract languages
                 movie_languages = set()
@@ -1080,6 +1079,7 @@ class LetterboxdScraper:
                         country_name = country.get_attribute('textContent').strip()
                         if country_name:
                             movie_countries.append(country_name)
+                            self.processor.country_counts[country_name] = self.processor.country_counts.get(country_name, 0) + 1
                 except Exception as e:
                     print_to_csv(f"Error extracting countries: {str(e)}")
                     movie_countries = []
@@ -1746,11 +1746,26 @@ class LetterboxdScraper:
             except Exception as e:
                 print_to_csv(f"Error extracting countries: {str(e)}")
 
+            # Extract runtime
+            runtime = None
+            try:
+                runtime_element = WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, 'p.text-link.text-footer'))
+                )
+                runtime_text = runtime_element.text
+                match = re.search(r'(\d+)\s*min(?:s)?', runtime_text)
+                if match:
+                    runtime = int(match.group(1))
+            except Exception as e:
+                print_to_csv(f"Error extracting runtime: {str(e)}")
+
             # Create movie data dictionary
             movie_data = {
                 'Title': film_title,
                 'Year': release_year,
                 'tmdbID': tmdb_id,
+                'MPAA': extract_mpaa_rating(self.driver),
+                'Runtime': runtime,
                 'RatingCount': rating_count,
                 'Languages': list(movie_languages),
                 'Countries': movie_countries,
