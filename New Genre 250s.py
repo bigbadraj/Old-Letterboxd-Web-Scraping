@@ -33,7 +33,6 @@ def print_to_csv(message: str):
 # Configure locale and constants
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 MAX_MOVIES = 5 # Currently using 7000
-MAX_MOVIES_2500 = 2500
 CHUNK_SIZE = 1900
 
 # Category display names for statistics
@@ -66,7 +65,7 @@ LIST_DIR = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
 BLACKLIST_PATH = os.path.join(LIST_DIR, 'blacklist.xlsx')
 WHITELIST_PATH = os.path.join(LIST_DIR, 'whitelist.xlsx')
 INCOMPLETE_STATS_WHITELIST_PATH = os.path.join(LIST_DIR, 'Incomplete_Stats_Whitelist.xlsx')
-ZERO_REVIEWS_PATH = os.path.join(LIST_DIR, 'Zero_Reviews.xlsx')  # Add new path
+ZERO_REVIEWS_PATH = os.path.join(LIST_DIR, 'Zero_Reviews.xlsx')
 
 # TMDb API key
 TMDB_API_KEY = 'Key'
@@ -80,8 +79,8 @@ FILTER_KEYWORDS = {
 
 FILTER_GENRES = {'Documentary'}
 
-# Initialize stats for MAX_MOVIES_2500
-max_movies_2500_stats = {
+# Initialize stats for MAX_MOVIES
+max_movies_stats = {
     'film_data': [],
     'director_counts': defaultdict(int),
     'actor_counts': defaultdict(int),
@@ -89,7 +88,8 @@ max_movies_2500_stats = {
     'genre_counts': defaultdict(int),
     'studio_counts': defaultdict(int),
     'language_counts': defaultdict(int),
-    'country_counts': defaultdict(int)
+    'country_counts': defaultdict(int),
+    'keyword_counts': defaultdict(int)
 }
 
 @dataclass
@@ -262,9 +262,9 @@ class MovieProcessor:
         # Add to film data
         self.film_data.append(film_data)
 
-        # Process MAX_MOVIES_2500 using centralized function
-        if add_to_max_movies_2500(info.get('Title'), info.get('Year'), info.get('tmdbID')):
-            self.update_max_movies_2500_statistics(info.get('Title'), info.get('Year'), info.get('tmdbID'))
+        # Process MAX_MOVIES using centralized function
+        if add_to_max_movies(info.get('Title'), info.get('Year'), info.get('tmdbID')):
+            self.update_max_movies_statistics(info.get('Title'), info.get('Year'), info.get('tmdbID'))
 
     def update_whitelist(self, film_title: str, release_year: str, movie_data: Dict, film_url: str = None) -> bool:
         """Update the whitelist with new movie data."""
@@ -414,8 +414,8 @@ class MovieProcessor:
         print_to_csv(f"⚠️ No runtime found. Skipping {film_title}.")
         return None
 
-    def update_max_movies_2500_statistics(self, film_title: str, release_year: str, tmdb_id: str):
-        """Update statistics for MAX_MOVIES_2500."""
+    def update_max_movies_statistics(self, film_title: str, release_year: str, tmdb_id: str):
+        """Update statistics for MAX_MOVIES."""
         # Get the movie info from whitelist
         movie_info, _ = self.get_whitelist_data(film_title, release_year)
         if not movie_info:
@@ -423,32 +423,32 @@ class MovieProcessor:
 
         # Update directors
         for director in movie_info.get('Directors', []):
-            max_movies_2500_stats['director_counts'][director] += 1
+            max_movies_stats['director_counts'][director] += 1
 
         # Update actors
         for actor in movie_info.get('Actors', []):
-            max_movies_2500_stats['actor_counts'][actor] += 1
+            max_movies_stats['actor_counts'][actor] += 1
 
         # Update decade
         decade = movie_info.get('Decade')
         if decade:
-            max_movies_2500_stats['decade_counts'][decade] += 1
+            max_movies_stats['decade_counts'][decade] += 1
 
         # Update genres
         for genre in movie_info.get('Genres', []):
-            max_movies_2500_stats['genre_counts'][genre] += 1
+            max_movies_stats['genre_counts'][genre] += 1
 
         # Update studios
         for studio in movie_info.get('Studios', []):
-            max_movies_2500_stats['studio_counts'][studio] += 1
+            max_movies_stats['studio_counts'][studio] += 1
 
         # Update languages
         for language in movie_info.get('Languages', []):
-            max_movies_2500_stats['language_counts'][language] += 1
+            max_movies_stats['language_counts'][language] += 1
 
         # Update countries
         for country in movie_info.get('Countries', []):
-            max_movies_2500_stats['country_counts'][country] += 1
+            max_movies_stats['country_counts'][country] += 1
 
     def is_blacklisted(self, film_title: str, release_year: str = None, film_url: str = None, driver = None) -> bool:
         """Check if a movie is in the blacklist using a lookup dictionary."""
@@ -668,25 +668,21 @@ def extract_mpaa_rating(driver) -> Optional[str]:
         print_to_csv(f"Error extracting MPAA rating: {str(e)}")
         return None
 
-def add_to_max_movies_2500(film_title: str, release_year: str, tmdb_id: str) -> bool:
+def add_to_max_movies(film_title: str, release_year: str, tmdb_id: str) -> bool:
     """
-    Centralized function to add a movie to max_movies_2500_stats if it's not already present.
-    Returns True if the movie was added, False if it was already present or if we've reached the limit.
+    Centralized function to add a movie to max_movies_stats if it's not already present.
     """
-    # Check if movie already exists
-    if any(movie['Title'] == film_title and movie['Year'] == release_year 
-           for movie in max_movies_2500_stats['film_data']):
+    if any(movie['title'] == film_title and movie['year'] == release_year 
+           for movie in max_movies_stats['film_data']):
         return False
         
-    # Check if we've reached the limit
-    if len(max_movies_2500_stats['film_data']) >= MAX_MOVIES_2500:
+    if len(max_movies_stats['film_data']) >= MAX_MOVIES:
         return False
         
-    # Add the movie
-    max_movies_2500_stats['film_data'].append({
-        'Title': film_title,
-        'Year': release_year,
-        'tmdbID': tmdb_id
+    max_movies_stats['film_data'].append({
+        'title': film_title,
+        'year': release_year,
+        'tmdb_id': tmdb_id
     })
     return True
 
@@ -702,7 +698,7 @@ class LetterboxdScraper:
         self.valid_movies_count = 0
         self.page_number = 1
         self.start_time = time.time()
-        self.top_movies_count = 0  # Track the number of movies added to the top 2500 list
+        self.top_movies_count = 0  # Track the number of movies added to the genre lists
         print_to_csv("Initialized Letterboxd Scraper.")
 
     def process_movie_data(self, info, film_title=None, film_url=None):
@@ -834,9 +830,9 @@ class LetterboxdScraper:
                                 # Process through output channels
                                 self.processor.process_whitelist_info(movie_data)
                                 
-                                # Process MAX_MOVIES_2500 using centralized function
-                                if add_to_max_movies_2500(film_title, release_year, movie_data.get('tmdbID')):
-                                    self.processor.update_max_movies_2500_statistics(film_title, release_year, movie_data.get('tmdbID'))
+                                # Process MAX_MOVIES using centralized function
+                                if add_to_max_movies(film_title, release_year, movie_data.get('tmdbID')):
+                                    self.processor.update_max_movies_statistics(film_title, release_year, movie_data.get('tmdbID'))
                                 
                                 return True
                             else:
@@ -1113,9 +1109,9 @@ class LetterboxdScraper:
                 # Process the whitelist information
                 self.processor.process_whitelist_info(info)
                                 
-                # Process MAX_MOVIES_2500 using centralized function
-                if add_to_max_movies_2500(film_title, release_year, tmdb_id):
-                    self.processor.update_max_movies_2500_statistics(film_title, release_year, tmdb_id)
+                # Process MAX_MOVIES using centralized function
+                if add_to_max_movies(film_title, release_year, tmdb_id):
+                    self.processor.update_max_movies_statistics(film_title, release_year, tmdb_id)
                 
                 # Add to unfiltered_approved if not already in whitelist
                 if not self.processor.is_whitelisted(film_title, release_year):
@@ -1465,9 +1461,9 @@ class LetterboxdScraper:
                                 self.valid_movies_count += 1  # Increment the count since it's an approved movie
                                 print_to_csv(f"✅ Successfully approved {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
                                                                                              
-                                # Process MAX_MOVIES_2500
-                                if add_to_max_movies_2500(film_title, release_year, tmdb_id):
-                                    self.processor.update_max_movies_2500_statistics(film_title, release_year, tmdb_id)
+                                # Process MAX_MOVIES using centralized function
+                                if add_to_max_movies(film_title, release_year, tmdb_id):
+                                    self.processor.update_max_movies_statistics(film_title, release_year, tmdb_id)
 
                         # Update statistics
                         self.update_statistics_for_movie(film_title, release_year, tmdb_id, self.driver, film_url)
@@ -1491,9 +1487,9 @@ class LetterboxdScraper:
         if self.valid_movies_count >= MAX_MOVIES:
             return
 
-        # Add to max_movies_2500_stats
-        if add_to_max_movies_2500(film_title, release_year, tmdb_id):
-            self.update_max_movies_2500_statistics(film_title, release_year, tmdb_id, self.driver)
+        # Add to max_movies_stats
+        if add_to_max_movies(film_title, release_year, tmdb_id):
+            self.update_max_movies_statistics(film_title, release_year, tmdb_id, self.driver)
 
         # Update statistics
         self.update_statistics_for_movie(film_title, release_year, tmdb_id, self.driver, film_url)
@@ -1501,22 +1497,22 @@ class LetterboxdScraper:
         # Increment valid movies count
         self.valid_movies_count += 1
 
-    def update_max_movies_2500_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver):
-        """Update statistics for MAX_MOVIES_2500."""
+    def update_max_movies_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver):
+        """Update statistics for MAX_MOVIES."""
         # Get movie details from TMDb
         genres, keywords = self.processor.fetch_tmdb_details(tmdb_id)
         
         # Update genre counts
         for genre in genres:
-            max_movies_2500_stats['genre_counts'][genre] = max_movies_2500_stats['genre_counts'].get(genre, 0) + 1
+            max_movies_stats['genre_counts'][genre] = max_movies_stats['genre_counts'].get(genre, 0) + 1
         
         # Update keyword counts
         for keyword in keywords:
-            max_movies_2500_stats['keyword_counts'][keyword] = max_movies_2500_stats['keyword_counts'].get(keyword, 0) + 1
+            max_movies_stats['keyword_counts'][keyword] = max_movies_stats['keyword_counts'].get(keyword, 0) + 1
         
         # Update decade counts
         decade = f"{release_year[:3]}0s"
-        max_movies_2500_stats['decade_counts'][decade] = max_movies_2500_stats['decade_counts'].get(decade, 0) + 1
+        max_movies_stats['decade_counts'][decade] = max_movies_stats['decade_counts'].get(decade, 0) + 1
         
         # Update director counts
         for heading in driver.find_elements(By.CSS_SELECTOR, '#tab-details h3'):
@@ -1525,7 +1521,7 @@ class LetterboxdScraper:
                 for director in sluglist.find_elements(By.CSS_SELECTOR, 'a.text-slug'):
                     director_name = director.text.strip()
                     if director_name:
-                        max_movies_2500_stats['director_counts'][director_name] = max_movies_2500_stats['director_counts'].get(director_name, 0) + 1
+                        max_movies_stats['director_counts'][director_name] = max_movies_stats['director_counts'].get(director_name, 0) + 1
         
         # Update actor counts
         for heading in driver.find_elements(By.CSS_SELECTOR, '#tab-details h3'):
@@ -1534,7 +1530,7 @@ class LetterboxdScraper:
                 for actor in sluglist.find_elements(By.CSS_SELECTOR, 'a.text-slug'):
                     actor_name = actor.text.strip()
                     if actor_name:
-                        max_movies_2500_stats['actor_counts'][actor_name] = max_movies_2500_stats['actor_counts'].get(actor_name, 0) + 1
+                        max_movies_stats['actor_counts'][actor_name] = max_movies_stats['actor_counts'].get(actor_name, 0) + 1
         
         # Update studio counts
         for heading in driver.find_elements(By.CSS_SELECTOR, '#tab-details h3'):
@@ -1543,7 +1539,7 @@ class LetterboxdScraper:
                 for studio in sluglist.find_elements(By.CSS_SELECTOR, 'a.text-slug'):
                     studio_name = studio.text.strip()
                     if studio_name:
-                        max_movies_2500_stats['studio_counts'][studio_name] = max_movies_2500_stats['studio_counts'].get(studio_name, 0) + 1
+                        max_movies_stats['studio_counts'][studio_name] = max_movies_stats['studio_counts'].get(studio_name, 0) + 1
         
         # Update language counts
         for heading in driver.find_elements(By.CSS_SELECTOR, '#tab-details h3'):
@@ -1552,7 +1548,7 @@ class LetterboxdScraper:
                 for language in sluglist.find_elements(By.CSS_SELECTOR, 'a.text-slug'):
                     language_name = language.text.strip()
                     if language_name:
-                        max_movies_2500_stats['language_counts'][language_name] = max_movies_2500_stats['language_counts'].get(language_name, 0) + 1
+                        max_movies_stats['language_counts'][language_name] = max_movies_stats['language_counts'].get(language_name, 0) + 1
         
         # Update country counts
         for heading in driver.find_elements(By.CSS_SELECTOR, '#tab-details h3'):
@@ -1561,12 +1557,12 @@ class LetterboxdScraper:
                 for country in sluglist.find_elements(By.CSS_SELECTOR, 'a.text-slug'):
                     country_name = country.text.strip()
                     if country_name:
-                        max_movies_2500_stats['country_counts'][country_name] = max_movies_2500_stats['country_counts'].get(country_name, 0) + 1
+                        max_movies_stats['country_counts'][country_name] = max_movies_stats['country_counts'].get(country_name, 0) + 1
 
-    def save_max_movies_2500_results(self):
-        """Save results for MAX_MOVIES_2500."""
+    def save_max_movies_results(self):
+        """Save results for MAX_MOVIES."""
         # Save movie data to CSV
-        df = pd.DataFrame(max_movies_2500_stats['film_data'])
+        df = pd.DataFrame(max_movies_stats['film_data'])
         output_path = os.path.join(BASE_DIR, f'top_250_{self.genre}_{self.sort_type}.csv')
         df.to_csv(output_path, index=False, encoding='utf-8')
 
@@ -1582,9 +1578,9 @@ class LetterboxdScraper:
 
             # Write header
             if self.sort_type == "popular":
-                file.write(f"<strong>The Top {len(max_movies_2500_stats['film_data'])} Most Popular {formatted_genre} Narrative Feature Films on Letterboxd</strong>\n\n")
+                file.write(f"<strong>The Top {len(max_movies_stats['film_data'])} Most Popular {formatted_genre} Narrative Feature Films on Letterboxd</strong>\n\n")
             else:
-                file.write(f"<strong>The Top {len(max_movies_2500_stats['film_data'])} Highest Rated {formatted_genre} Narrative Feature Films on Letterboxd</strong>\n\n")
+                file.write(f"<strong>The Top {len(max_movies_stats['film_data'])} Highest Rated {formatted_genre} Narrative Feature Films on Letterboxd</strong>\n\n")
             
             # Write last updated date
             current_date = datetime.now()
@@ -1606,7 +1602,7 @@ class LetterboxdScraper:
             file.write("-- Entries that have scores inflated because they share a name with a popular television show are removed, as I notice them.\n\n")
             
             # Write top 10 statistics for this category
-            for category_name, counts in max_movies_2500_stats.items():
+            for category_name, counts in max_movies_stats.items():
                 if category_name != 'film_data':
                     display_name = category_display_names.get(category_name, category_name.replace('_counts', ''))
                     file.write(f"<strong>The ten most appearing {display_name}:</strong>\n")
@@ -1631,8 +1627,8 @@ class LetterboxdScraper:
             for movie in self.processor.unfiltered_denied:
                 writer.writerow(movie + [f"{self.genre.capitalize()}_{self.sort_type}"])  # Append genre and sort type
 
-        # Save MAX_MOVIES_2500 results
-        self.save_max_movies_2500_results()
+        # Save MAX_MOVIES results
+        self.save_max_movies_results()
 
     def log_error_to_csv(self, error_message: str):
         """Log error messages to update_results.csv."""
@@ -1783,9 +1779,9 @@ class LetterboxdScraper:
                     # Process through all output channels
                     self.processor.process_whitelist_info(movie_data)
                     
-                    # Process MAX_MOVIES_2500 using centralized function
-                    if add_to_max_movies_2500(film_title, release_year, tmdb_id):
-                        self.processor.update_max_movies_2500_statistics(film_title, release_year, tmdb_id)
+                    # Process MAX_MOVIES using centralized function
+                    if add_to_max_movies(film_title, release_year, tmdb_id):
+                        self.processor.update_max_movies_statistics(film_title, release_year, tmdb_id)
                     
                     self.valid_movies_count += 1
                     print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
@@ -1807,9 +1803,9 @@ def main():
                 print_to_csv(f"Genre: {genre.capitalize()}")
                 print_to_csv(f"Sort Type: {sort_type.capitalize()}")
                 
-                # Reset max_movies_2500_stats for each new genre/sort type combination
-                global max_movies_2500_stats
-                max_movies_2500_stats = {
+                # Reset max_movies_stats for each new genre/sort type combination
+                global max_movies_stats
+                max_movies_stats = {
                     'film_data': [],
                     'director_counts': defaultdict(int),
                     'actor_counts': defaultdict(int),
@@ -1817,7 +1813,8 @@ def main():
                     'genre_counts': defaultdict(int),
                     'studio_counts': defaultdict(int),
                     'language_counts': defaultdict(int),
-                    'country_counts': defaultdict(int)
+                    'country_counts': defaultdict(int),
+                    'keyword_counts': defaultdict(int)
                 }
                 
                 scraper = LetterboxdScraper(genre=genre, sort_type=sort_type)
