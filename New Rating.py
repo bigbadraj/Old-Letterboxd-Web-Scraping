@@ -21,6 +21,7 @@ import unicodedata
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import json
+from selenium.common.exceptions import NoSuchElementException
 
 # Define a custom print function
 def print_to_csv(message: str):
@@ -32,7 +33,7 @@ def print_to_csv(message: str):
 
 # Configure locale and constants
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
-MAX_MOVIES = 7000 # Currently using 7000
+MAX_MOVIES = 20 # Currently using 7000
 MAX_MOVIES_2500 = 2500
 MAX_MOVIES_MPAA = 250
 MAX_MOVIES_RUNTIME = 250
@@ -63,7 +64,7 @@ INCOMPLETE_STATS_WHITELIST_PATH = os.path.join(LIST_DIR, 'Incomplete_Stats_White
 ZERO_REVIEWS_PATH = os.path.join(LIST_DIR, 'Zero_Reviews.xlsx')  # Add new path
 
 # TMDb API key
-TMDB_API_KEY = 'Change This'
+TMDB_API_KEY = 'key'
 
 # Filtering criteria
 FILTER_KEYWORDS = {
@@ -79,7 +80,7 @@ MPAA_RATINGS = ['G', 'PG', 'PG-13', 'R', 'NC-17', 'NR']
 mpaa_stats = {rating: {'film_data': [], 'director_counts': defaultdict(int), 'actor_counts': defaultdict(int), 
                        'decade_counts': defaultdict(int), 'genre_counts': defaultdict(int), 
                        'studio_counts': defaultdict(int), 'language_counts': defaultdict(int), 
-                       'country_counts': defaultdict(int)} for rating in MPAA_RATINGS}
+                       'country_counts': defaultdict(int)} for rating in MPAA_RATINGS}  # Each entry will have Title, Year, tmdbID, and URL fields
 
 # Add new constants for runtime categories
 RUNTIME_CATEGORIES = {
@@ -93,19 +94,19 @@ runtime_stats = {
     '90_Minutes_or_Less': {'film_data': [], 'director_counts': defaultdict(int), 'actor_counts': defaultdict(int), 
                      'decade_counts': defaultdict(int), 'genre_counts': defaultdict(int), 
                      'studio_counts': defaultdict(int), 'language_counts': defaultdict(int), 
-                     'country_counts': defaultdict(int)},
+                     'country_counts': defaultdict(int)},  # Each entry will have Title, Year, tmdbID, and URL fields
     '120_Minutes_or_Less': {'film_data': [], 'director_counts': defaultdict(int), 'actor_counts': defaultdict(int), 
                       'decade_counts': defaultdict(int), 'genre_counts': defaultdict(int), 
                       'studio_counts': defaultdict(int), 'language_counts': defaultdict(int), 
-                      'country_counts': defaultdict(int)},
+                      'country_counts': defaultdict(int)},  # Each entry will have Title, Year, tmdbID, and URL fields
     '180_Minutes_or_Greater': {'film_data': [], 'director_counts': defaultdict(int), 'actor_counts': defaultdict(int), 
                          'decade_counts': defaultdict(int), 'genre_counts': defaultdict(int), 
                          'studio_counts': defaultdict(int), 'language_counts': defaultdict(int), 
-                         'country_counts': defaultdict(int)},
+                         'country_counts': defaultdict(int)},  # Each entry will have Title, Year, tmdbID, and URL fields
     '240_Minutes_or_Greater': {'film_data': [], 'director_counts': defaultdict(int), 'actor_counts': defaultdict(int), 
                          'decade_counts': defaultdict(int), 'genre_counts': defaultdict(int), 
                          'studio_counts': defaultdict(int), 'language_counts': defaultdict(int), 
-                         'country_counts': defaultdict(int)}
+                         'country_counts': defaultdict(int)}  # Each entry will have Title, Year, tmdbID, and URL fields
 }
 
 # Define continents and their associated countries in a case-insensitive manner
@@ -121,7 +122,7 @@ CONTINENTS_COUNTRIES = {
 # Initialize continent stats with additional counts
 continent_stats = {
     continent: {
-        'film_data': [],
+        'film_data': [],  # Each entry will have Title, Year, tmdbID, and URL fields
         'country_counts': defaultdict(int),
         'director_counts': defaultdict(int),
         'actor_counts': defaultdict(int),
@@ -134,8 +135,9 @@ continent_stats = {
 
 @dataclass
 class MovieData:
-    title: str
-    year: str
+    url: str  # Only identifier
+    title: str  # For reference only
+    year: str  # For reference only
     tmdb_id: Optional[str] = None
     rating_count: int = 0
     runtime: int = 0
@@ -182,6 +184,12 @@ class MovieProcessor:
         # Fill empty links with empty string instead of None
         self.blacklist['Link'] = self.blacklist['Link'].fillna('')
         
+        # Create a lookup dictionary for faster matching using URLs as keys
+        self.blacklist_lookup = {}
+        for idx, row in self.blacklist.iterrows():
+            if row['Link']:  # Only store entries with URLs
+                self.blacklist_lookup[row['Link']] = True
+        
         self.added_movies: Set[Tuple[str, str]] = set()
         self.film_data: List[Dict] = []
         self.rejected_data: List[List] = []
@@ -211,22 +219,22 @@ class MovieProcessor:
             # Fill empty links with empty string instead of None
             self.whitelist['Link'] = self.whitelist['Link'].fillna('')
             
-            # Create a lookup dictionary for faster matching
+            # Create a lookup dictionary for faster matching using URLs as keys
             self.whitelist_lookup = {}
             for idx, row in self.whitelist.iterrows():
-                key = f"{row['Title'].lower()}_{row['Year']}"
-                try:
-                    # Handle null/empty Information values by treating them as empty dictionaries
-                    if pd.isna(row['Information']) or row['Information'] == '':
+                if row['Link']:  # Only store entries with URLs
+                    try:
+                        # Handle null/empty Information values by treating them as empty dictionaries
+                        if pd.isna(row['Information']) or row['Information'] == '':
+                            info = {}
+                        else:
+                            info = json.loads(row['Information']) if isinstance(row['Information'], str) else row['Information']
+                        self.whitelist_lookup[row['Link']] = (info, idx, row['Link'])  # Added URL to tuple
+                    except (json.JSONDecodeError, TypeError):
+                        # If there's any error parsing, treat it as an empty dictionary
                         info = {}
-                    else:
-                        info = json.loads(row['Information']) if isinstance(row['Information'], str) else row['Information']
-                    self.whitelist_lookup[key] = (info, idx, row['Link'])
-                except (json.JSONDecodeError, TypeError):
-                    # If there's any error parsing, treat it as an empty dictionary
-                    info = {}
-                    self.whitelist_lookup[key] = (info, idx, row['Link'])
-                    continue
+                        self.whitelist_lookup[row['Link']] = (info, idx, row['Link'])  # Added URL to tuple
+                        continue
                 
         except FileNotFoundError:
             print_to_csv("whitelist.xlsx not found. Creating new file.")
@@ -239,22 +247,23 @@ class MovieProcessor:
             # Read incomplete stats whitelist with explicit string type for Year column
             self.incomplete_stats_whitelist = pd.read_excel(INCOMPLETE_STATS_WHITELIST_PATH, 
                                                           header=0, 
-                                                          names=['Title', 'Year'], 
+                                                          names=['Title', 'Year', 'Link'], 
                                                           dtype={'Year': str})
             
             # Normalize the data
             self.incomplete_stats_whitelist['Title'] = self.incomplete_stats_whitelist['Title'].apply(normalize_text)
             self.incomplete_stats_whitelist['Year'] = self.incomplete_stats_whitelist['Year'].astype(str).str.strip()
+            self.incomplete_stats_whitelist['Link'] = self.incomplete_stats_whitelist['Link'].fillna('')
             
-            # Create a lookup dictionary for faster matching
+            # Create a lookup dictionary for faster matching using URLs as keys
             self.incomplete_stats_lookup = {}
-            for _, row in self.incomplete_stats_whitelist.iterrows():
-                key = f"{row['Title'].lower()}_{row['Year']}"
-                self.incomplete_stats_lookup[key] = True
+            for idx, row in self.incomplete_stats_whitelist.iterrows():
+                if row['Link']:  # Only store entries with URLs
+                    self.incomplete_stats_lookup[row['Link']] = idx
                 
         except FileNotFoundError:
             print_to_csv("Incomplete_Stats_Whitelist.xlsx not found. Creating new file.")
-            self.incomplete_stats_whitelist = pd.DataFrame(columns=['Title', 'Year'])
+            self.incomplete_stats_whitelist = pd.DataFrame(columns=['Title', 'Year', 'Link'])
             self.incomplete_stats_whitelist.to_excel(INCOMPLETE_STATS_WHITELIST_PATH, index=False)
 
     def load_zero_reviews(self):
@@ -271,11 +280,11 @@ class MovieProcessor:
                 self.zero_reviews['Link'] = self.zero_reviews['Link'].fillna('')
                 self.zero_reviews['Blank'] = ''  # Ensure Blank column is empty
                             
-                # Create a lookup dictionary for faster matching
+                # Create a lookup dictionary for faster matching using URLs as keys
                 self.zero_reviews_lookup = {}
                 for idx, row in self.zero_reviews.iterrows():
-                    key = f"{row['Title'].lower()}_{row['Year']}"
-                    self.zero_reviews_lookup[key] = (row['Link'], idx)
+                    if row['Link']:  # Only store entries with URLs
+                        self.zero_reviews_lookup[row['Link']] = idx
                     
             else:
                 self.zero_reviews = pd.DataFrame(columns=['Title', 'Year', 'Blank', 'Link'])
@@ -287,22 +296,32 @@ class MovieProcessor:
             print_to_csv(f"ERROR details: {e.__dict__ if hasattr(e, '__dict__') else 'No details available'}")
             raise  # Re-raise the exception to see the full traceback
 
-    def process_whitelist_info(self, info: Dict):
-        """Process information from whitelist and update statistics."""
+    def process_whitelist_info(self, info: Dict, film_url: str = None):
+        """Process information from whitelist and update statistics using URL as primary identifier."""
+        
         if not isinstance(info, dict):
             print_to_csv("❌ Info is not a dictionary, skipping")
             return
 
+        # Ensure film_url is correctly set, prioritizing the argument if provided
+        if film_url is None:
+            film_url = info.get('Link')
+
+        film_title = info.get('Title')
+        release_year = info.get('Year')
+        tmdb_id = info.get('tmdbID')
+                
         # Create film_data entry
         film_data = {
-            'Title': info.get('Title'),
-            'Year': info.get('Year'),
-            'tmdbID': info.get('tmdbID')
+            'Title': film_title,
+            'Year': release_year,
+            'tmdbID': tmdb_id,
+            'Link': film_url
         }
 
         # Add to film data
         self.film_data.append(film_data)
-
+        
         # Process runtime category if we have runtime info
         runtime = info.get('Runtime')
         if runtime:
@@ -317,13 +336,13 @@ class MovieProcessor:
                 categories.append('240_Minutes_or_Greater')
             
             for category in categories:
-                if add_to_runtime_stats(category, info.get('Title'), info.get('Year'), info.get('tmdbID')):
-                    self.update_runtime_statistics(info.get('Title'), info.get('Year'), info.get('tmdbID'), None, category)
+                if add_to_runtime_stats(category, film_title, release_year, tmdb_id, film_url):
+                    self.update_runtime_statistics(film_title, release_year, tmdb_id, None, category)
 
         # Process MPAA rating if we have it
         mpaa_rating = info.get('MPAA')
         if mpaa_rating and mpaa_rating in MPAA_RATINGS:
-            if add_to_mpaa_stats(mpaa_rating, info.get('Title'), info.get('Year'), info.get('tmdbID')):
+            if add_to_mpaa_stats(mpaa_rating, film_title, release_year, tmdb_id, film_url):
                 self.update_statistics(mpaa_rating)
 
         # Process continent data if we have countries
@@ -331,40 +350,42 @@ class MovieProcessor:
         for country in countries:
             for continent, country_list in CONTINENTS_COUNTRIES.items():
                 if country in country_list:
-                    if add_to_continent_stats(continent, info.get('Title'), info.get('Year'), info.get('tmdbID')):
+                    if add_to_continent_stats(continent, film_title, release_year, tmdb_id, film_url):
                         self.update_continent_statistics(continent)
                     break
 
         # Process MAX_MOVIES_2500 using centralized function
-        if add_to_max_movies_2500(info.get('Title'), info.get('Year'), info.get('tmdbID')):
-            self.update_max_movies_2500_statistics(info.get('Title'), info.get('Year'), info.get('tmdbID'))
-
-    def update_whitelist(self, film_title: str, release_year: str, movie_data: Dict, film_url: str = None) -> bool:
-        """Update the whitelist with new movie data."""
-        try:
-            key = f"{film_title.lower()}_{release_year}"
+        if add_to_max_movies_2500(film_title, release_year, tmdb_id, film_url):
+            self.update_max_movies_2500_statistics(film_title, release_year, tmdb_id, None, film_url)
             
-            if key in self.whitelist_lookup:
-                # Update existing entry
-                _, row_idx, existing_url = self.whitelist_lookup[key]
-                self.whitelist.at[row_idx, 'Information'] = json.dumps(movie_data)
-                # Only update link if it's currently blank and we have a new URL
-                if film_url and (not existing_url or existing_url == ''):
-                    self.whitelist.at[row_idx, 'Link'] = film_url
-                    print_to_csv(f"🔗 Added link to whitelist for {film_title}")
-                self.whitelist_lookup[key] = (movie_data, row_idx, film_url or existing_url)
-            else:
-                # Add new entry
-                new_row = pd.DataFrame([{
-                    'Title': film_title,
-                    'Year': release_year,
-                    'Information': json.dumps(movie_data),
-                    'Link': film_url or ''
-                }])
-                self.whitelist = pd.concat([self.whitelist, new_row], ignore_index=True)
-                self.whitelist_lookup[key] = (movie_data, len(self.whitelist) - 1, film_url or '')
-                if film_url:
-                    print_to_csv(f"🔗 Added link to whitelist for {film_title}")
+    def update_whitelist(self, film_title: str, release_year: str, movie_data: Dict, film_url: str = None) -> bool:
+        """Update whitelist with movie data using URL as primary identifier."""
+        if not film_url:
+            return False  # Can't update whitelist without URL
+            
+        try:
+            # Check if URL already exists in whitelist
+            for row_idx, row in self.whitelist.iterrows():
+                url = row.get('Link', '')
+                if url == film_url:
+                    # Update existing entry
+                    self.whitelist.at[row_idx, 'Information'] = json.dumps(movie_data)
+                    self.whitelist_lookup[film_url] = (movie_data, row_idx, film_url)
+                    # Save to Excel
+                    self.whitelist.to_excel(WHITELIST_PATH, index=False)
+                    self.load_whitelist()  # Reload to ensure consistency
+                    return True
+            
+            # Add new entry if URL not found
+            new_row = pd.DataFrame([{
+                'Title': film_title,
+                'Year': release_year,
+                'Information': json.dumps(movie_data),
+                'Link': film_url
+            }])
+            self.whitelist = pd.concat([self.whitelist, new_row], ignore_index=True)
+            self.whitelist_lookup[film_url] = (movie_data, len(self.whitelist) - 1, film_url)
+            print_to_csv(f"🔗 Added link to whitelist for {film_title}")
             
             # Save to Excel
             self.whitelist.to_excel(WHITELIST_PATH, index=False)
@@ -376,72 +397,18 @@ class MovieProcessor:
             return False
 
     def get_whitelist_data(self, film_title: str, release_year: str = None, film_url: str = None) -> Optional[Tuple[Dict, int]]:
-        """Get the whitelist data for a movie if it exists."""
-        
-        # If we have a URL, check for URL match first
-        if film_url:
-            for key, value in self.whitelist_lookup.items():
-                if isinstance(value, tuple) and len(value) == 3:
-                    info, row_idx, url = value
-                    if url == film_url:
-                        return info, row_idx
-        
-        # If no URL match or no URL provided, try title-only match
-        matches = []
-        for key, value in self.whitelist_lookup.items():
-            title = key.split('_')[0]
-            if title == film_title.lower():
-                # Handle case where value might not have all three elements
-                if isinstance(value, tuple):
-                    if len(value) == 3:
-                        info, row_idx, url = value
-                    elif len(value) == 2:
-                        info, row_idx = value
-                        url = ''
-                    else:
-                        continue
-                else:
-                    continue
-                matches.append((info, row_idx, url))
-
-        if len(matches) == 1:
-            return matches[0][0], matches[0][1]
-        elif len(matches) > 1:
-            # If we have multiple matches and a film_url, check for URL match first
-            if film_url:
-                for info, row_idx, url in matches:
-                    if url == film_url:
-                        return info, row_idx
+        """Get the whitelist data for a movie if it exists. Only matches by URL."""
+        if not film_url:
+            return None, None  # Movie not in whitelist
             
-                # If no URL match, try to get release year from the page
-                try:
-                    # Use requests session instead of Selenium for year extraction
-                    response = self.session.get(film_url)
-                    # Use regex to find the year in the page source
-                    match = re.search(r'<meta property="og:title" content="[^"]*\((\d{4})\)"', response.text)
-                    if match:
-                        scraped_year = match.group(1)
-                        # Now try exact match with title and scraped year
-                        key = f"{film_title.lower()}_{scraped_year}"
-                        if key in self.whitelist_lookup:
-                            value = self.whitelist_lookup[key]
-                            if isinstance(value, tuple):
-                                if len(value) == 3:
-                                    info, row_idx, _ = value
-                                elif len(value) == 2:
-                                    info, row_idx = value
-                                else:
-                                    return None, None
-                            else:
-                                return None, None
-                            return info, row_idx
-                except Exception as e:
-                    print_to_csv(f"DEBUG: Error scraping release year: {str(e)}")
-            return None, None
-        
-        return None, None
+        # Check if URL exists in whitelist lookup
+        if film_url in self.whitelist_lookup:
+            info, row_idx, _ = self.whitelist_lookup[film_url]
+            return info, row_idx
+            
+        return None, None  # Movie not in whitelist
 
-    def fetch_tmdb_details(self, tmdb_id: str) -> Tuple[List[str], List[str]]:
+    def fetch_tmdb_details(self, tmdb_id: str) -> Optional[Tuple[List[str], List[str]]]:
         movie_url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=keywords"
         response = self.session.get(movie_url)
 
@@ -454,30 +421,38 @@ class MovieProcessor:
         else:
             if response.status_code == 401:
                 print_to_csv("Check your API key.")
-            return [], []
+            return None
 
     def add_to_blacklist(self, film_title: str, release_year: str, reason: str, film_url: str = None) -> None:
-        if not any((film_title.lower() == str(row['Title']).lower() and 
-                   release_year == row['Year']) for _, row in self.blacklist.iterrows()):
-            # Create a new row as a DataFrame
-            new_row = pd.DataFrame([[film_title, release_year, reason, film_url]], 
-                                 columns=['Title', 'Year', 'Reason', 'Link'])
-            # Append to existing blacklist
-            self.blacklist = pd.concat([self.blacklist, new_row], ignore_index=True)
-            # Save back to Excel
-            self.blacklist.to_excel(BLACKLIST_PATH, index=False)
-            print_to_csv(f"⚫ {film_title} ({release_year}) added to blacklist {reason}")
+        """Add a movie to the blacklist if it fails a criteria, including the link if available. Never patch missing links in existing entries."""
+        if not film_url or not reason:
+            return
+            
+        # Check if URL already exists in lookup
+        if film_url in self.blacklist_lookup:
+            return
+            
+        # Add new entry
+        new_row = pd.DataFrame([[film_title, release_year, reason, film_url]],
+                               columns=['Title', 'Year', 'Reason', 'Link'])
+        self.blacklist = pd.concat([self.blacklist, new_row], ignore_index=True)
+        self.blacklist_lookup[film_url] = True
+        self.blacklist.to_excel(BLACKLIST_PATH, index=False)
+        print_to_csv(f"⚫ {film_title} ({release_year}) added to blacklist {reason}")
 
-    def is_whitelisted(self, film_title: str, release_year: str) -> bool:
-        """Check if a movie is in the whitelist using the lookup dictionary."""
-        key = f"{film_title.lower()}_{release_year}"
-        return key in self.whitelist_lookup
+    def is_whitelisted(self, film_title: str, release_year: str, film_url: str = None) -> bool:
+        """Check if a movie is in the whitelist using ONLY URL as identifier."""
+        if not film_url:
+            return False
+            
+        # Only check URL match, never use title/year
+        return film_url in self.whitelist_lookup
 
     def extract_runtime(self, driver, film_title: str) -> Optional[int]:
         try:
             runtime_element = driver.find_element(By.CSS_SELECTOR, 'p.text-link.text-footer')
             runtime_text = runtime_element.text
-            match = re.search(r'(\d+)\s*mins', runtime_text)
+            match = re.search(r'(\d+)\s*min(?:s)?', runtime_text)
             if match:
                 runtime = int(match.group(1))
                 return runtime
@@ -487,10 +462,15 @@ class MovieProcessor:
         print_to_csv(f"⚠️ No runtime found. Skipping {film_title}.")
         return None
 
-    def process_runtime_category(self, film_title: str, release_year: str, tmdb_id: str, runtime: int, driver=None):
-        """Process the runtime category for a movie and extract all its metadata"""
-        categories = []  # Initialize a list to hold categories
-
+    def process_runtime_category(self, film_title: str, release_year: str, tmdb_id: str, runtime: int, film_url: str = None, driver=None):
+        """Process runtime category for a movie using URL as primary identifier."""
+        if not film_url:
+            return
+            
+        if runtime is None:
+            return
+            
+        categories = []
         if runtime < 91:
             categories.append('90_Minutes_or_Less')
         if runtime < 121:
@@ -499,37 +479,24 @@ class MovieProcessor:
             categories.append('180_Minutes_or_Greater')
         if runtime > 239:
             categories.append('240_Minutes_or_Greater')
-
-        if not categories:
-            return  # Not in any category we care about
-
-        # Add the movie to the film_data for each category
+            
+        # Update runtime statistics using URL for each category
         for category in categories:
-            runtime_stats[category]['film_data'].append({
-                'Title': film_title,
-                'Year': release_year,
-                'tmdbID': tmdb_id
-            })
+            self.update_runtime_statistics(film_title, release_year, tmdb_id, driver, category, film_url)
 
-            # Now check if we should update statistics
-            max_movies_limit = (
-                MAX_180 if category == '180_Minutes_or_Greater' else
-                MAX_240 if category == '240_Minutes_or_Greater' else
-                MAX_MOVIES_RUNTIME
-            )
-            if len(runtime_stats[category]['film_data']) <= max_movies_limit:
-                self.update_runtime_statistics(film_title, release_year, tmdb_id, driver, category)
-
-    def update_runtime_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver, category: str):
-        """Update statistics for the given runtime category."""
+    def update_runtime_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver, category: str, film_url: str = None):
+        """Update statistics for the given runtime category using URL as primary identifier."""
+        if not film_url:
+            return
+            
         if (len(runtime_stats[category]['film_data']) - 1) >= MAX_MOVIES_RUNTIME:
             return  # Skip updating if we already have enough movies
 
-        # Get the movie info from whitelist
-        movie_info, _ = self.get_whitelist_data(film_title, release_year)
+        # Get the movie info from whitelist using URL
+        movie_info, _ = self.get_whitelist_data(film_title, release_year, film_url)
         if not movie_info:
             return
-
+            
         # Update directors
         for director in movie_info.get('Directors', []):
             runtime_stats[category]['director_counts'][director] += 1
@@ -559,21 +526,16 @@ class MovieProcessor:
         for country in movie_info.get('Countries', []):
             runtime_stats[category]['country_counts'][country] += 1
 
-    def update_statistics(self, mpaa_rating: str):
-        """Update statistics for the given MPAA rating."""
-        # Get the most recently added movie from the MPAA rating's film_data
-        if not mpaa_stats[mpaa_rating]['film_data']:
+    def update_statistics(self, mpaa_rating: str, film_url: str = None):
+        """Update MPAA rating statistics using URL as primary identifier."""
+        if not film_url or not mpaa_rating:
             return
             
-        latest_movie = mpaa_stats[mpaa_rating]['film_data'][-1]
-        film_title = latest_movie['Title']
-        release_year = latest_movie['Year']
-        
-        # Get the movie info from whitelist
-        movie_info, _ = self.get_whitelist_data(film_title, release_year)
+        # Get the movie info from whitelist using URL
+        movie_info, _ = self.get_whitelist_data(None, None, film_url)
         if not movie_info:
             return
-
+            
         # Update directors
         for director in movie_info.get('Directors', []):
             mpaa_stats[mpaa_rating]['director_counts'][director] += 1
@@ -603,21 +565,16 @@ class MovieProcessor:
         for country in movie_info.get('Countries', []):
             mpaa_stats[mpaa_rating]['country_counts'][country] += 1
 
-    def update_continent_statistics(self, continent: str):
-        """Update statistics for the given continent."""
-        # Get the most recently added movie from the continent's film_data
-        if not continent_stats[continent]['film_data']:
+    def update_continent_statistics(self, continent: str, film_url: str = None):
+        """Update continent statistics using URL as primary identifier."""
+        if not film_url or not continent:
             return
             
-        latest_movie = continent_stats[continent]['film_data'][-1]
-        film_title = latest_movie['Title']
-        release_year = latest_movie['Year']
-        
-        # Get the movie info from whitelist
-        movie_info, _ = self.get_whitelist_data(film_title, release_year)
+        # Get the movie info from whitelist using URL
+        movie_info, _ = self.get_whitelist_data(None, None, film_url)
         if not movie_info:
             return
-
+            
         # Update directors
         for director in movie_info.get('Directors', []):
             continent_stats[continent]['director_counts'][director] += 1
@@ -647,99 +604,114 @@ class MovieProcessor:
         for country in movie_info.get('Countries', []):
             continent_stats[continent]['country_counts'][country] += 1
 
-    def update_max_movies_2500_statistics(self, film_title: str, release_year: str, tmdb_id: str):
-        """Update statistics for MAX_MOVIES_2500."""
-        # Get the movie info from whitelist
-        movie_info, _ = self.get_whitelist_data(film_title, release_year)
-        if not movie_info:
+    def update_max_movies_2500_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver, film_url: str = None):
+        """Update statistics for the given movie for MAX_MOVIES_2500 using URL as primary identifier."""
+        if not film_url:
+            return
+            
+        # Find the movie in film_data using URL
+        movie_data = next((movie for movie in max_movies_2500_stats['film_data'] 
+                          if movie.get('Link') == film_url), None)
+        
+        if not movie_data:
             return
 
-        # Update directors
-        for director in movie_info.get('Directors', []):
-            max_movies_2500_stats['director_counts'][director] += 1
+        # Directors
+        try:
+            director_elements = driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
+            for director in director_elements:
+                director_name = director.text.strip()
+                if director_name:
+                    max_movies_2500_stats['director_counts'][director_name] += 1
+        except Exception:
+            pass
 
         # Update actors
-        for actor in movie_info.get('Actors', []):
-            max_movies_2500_stats['actor_counts'][actor] += 1
+        try:
+            actor_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
+            for actor in actor_elements:
+                actor_name = actor.text.strip()
+                if actor_name:
+                    max_movies_2500_stats['actor_counts'][actor_name] += 1
+        except Exception:
+            pass
 
         # Update decade
-        decade = movie_info.get('Decade')
-        if decade:
-            max_movies_2500_stats['decade_counts'][decade] += 1
+        try:
+            meta_tag = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
+            content = meta_tag.get_attribute('content')
+            if content and '(' in content and ')' in content:
+                year = int(content.split('(')[-1].split(')')[0])
+                decade = (year // 10) * 10
+                max_movies_2500_stats['decade_counts'][decade] += 1
+        except Exception:
+            pass
 
-        # Update genres
-        for genre in movie_info.get('Genres', []):
-            max_movies_2500_stats['genre_counts'][genre] += 1
+        # Update genres - Only get main genres, not microgenres
+        try:
+            genre_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]')
+            genres = []
+            for genre in genre_elements:
+                genre_name = genre.get_attribute('textContent').strip()
+                if genre_name and not any(char in genre_name for char in ['…', 'Show All']):
+                    genres.append(genre_name)
+                    max_movies_2500_stats['genre_counts'][genre_name] += 1
+            movie_data['Genres'] = genres
+        except Exception:
+            pass
 
         # Update studios
-        for studio in movie_info.get('Studios', []):
-            max_movies_2500_stats['studio_counts'][studio] += 1
+        try:
+            studio_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/studio/"]')
+            studios = []
+            for studio in studio_elements:
+                studio_name = studio.get_attribute('textContent').strip()
+                if studio_name:
+                    studios.append(studio_name)
+                    max_movies_2500_stats['studio_counts'][studio_name] += 1
+            movie_data['Studios'] = studios
+        except Exception:
+            pass
 
         # Update languages
-        for language in movie_info.get('Languages', []):
-            max_movies_2500_stats['language_counts'][language] += 1
+        try:
+            language_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/language/"]')
+            languages = []
+            for language in language_elements:
+                language_name = language.get_attribute('textContent').strip()
+                if language_name:
+                    languages.append(language_name)
+                    max_movies_2500_stats['language_counts'][language_name] += 1
+            movie_data['Languages'] = languages
+        except Exception:
+            pass
 
         # Update countries
-        for country in movie_info.get('Countries', []):
-            max_movies_2500_stats['country_counts'][country] += 1
+        try:
+            country_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]')
+            countries = []
+            for country in country_elements:
+                country_name = country.get_attribute('textContent').strip()
+                if country_name:
+                    countries.append(country_name)
+                    max_movies_2500_stats['country_counts'][country_name] += 1
+            movie_data['Countries'] = countries
+        except Exception:
+            pass
 
     def is_blacklisted(self, film_title: str, release_year: str = None, film_url: str = None, driver = None) -> bool:
-        """Check if a movie is in the blacklist using a lookup dictionary."""
-        # If we have a URL, check for URL match first
-        if film_url:
-            for _, row in self.blacklist.iterrows():
-                if row['Link'] == film_url:
-                    return True
-        
-        # If no URL match or no URL provided, try title matching
-        normalized_title = normalize_text(film_title).lower()
-        
-        # Find all matching titles in blacklist
-        matching_entries = self.blacklist[
-            self.blacklist['Title'].apply(normalize_text).str.lower() == normalized_title
-        ]
-        
-        if matching_entries.empty:
+        """Check if a movie is blacklisted using URL as primary identifier."""
+        if not film_url:
             return False
             
-        # If we have a URL but no direct match, check year match
-        if film_url:
-            for _, row in matching_entries.iterrows():
-                if row['Link'] == '':  # If link is empty, check year match
-                    # Get release year from movie page if not provided
-                    if not release_year and driver:  # Make sure we have a driver
-                        print_to_csv("Getting release year from movie page...")
-                        driver.get(film_url)  # Use the passed driver parameter
-                        WebDriverWait(driver, 10).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
-                        )
-                        time.sleep(random.uniform(1.0, 1.5))
-                        
-                        meta_tag = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
-                        if meta_tag:
-                            release_year_content = meta_tag.get_attribute('content')
-                            if '(' in release_year_content and ')' in release_year_content:
-                                release_year = release_year_content.split('(')[-1].strip(')')
-                                print_to_csv(f"Found release year: {release_year}")
-                
-                    # Check if years match
-                    if release_year and str(row['Year']).strip() == str(release_year).strip():
-                        # Update the blacklist with the link
-                        self.blacklist.loc[row.name, 'Link'] = film_url
-                        self.blacklist.to_excel(BLACKLIST_PATH, index=False)
-                        print_to_csv(f"🔗 Added link to blacklist for {film_title}")
-                        return True
-        
-        # If no URL or no match found, check year if available
-        if release_year:
-            for _, row in matching_entries.iterrows():
-                if str(row['Year']).strip() == str(release_year).strip():
-                    return True
-        
-        return False
+        # Check if URL exists in blacklist lookup
+        return film_url in self.blacklist_lookup
 
-    def save_refreshed_data(self, film_title: str, release_year: str, tmdb_id: str) -> None:
-        """Save information about movies that had their data reconstructed."""
+    def save_refreshed_data(self, film_title: str, release_year: str, tmdb_id: str, film_url: str = None) -> None:
+        """Save information about movies that had their data reconstructed, using URL as primary identifier."""
+        if not film_url:
+            return
+            
         try:
             # Check if file exists to determine if we need to write headers
             file_exists = os.path.exists(BASE_DIR + '/Refreshed_Data.csv')
@@ -747,63 +719,74 @@ class MovieProcessor:
             with open(BASE_DIR + '/Refreshed_Data.csv', mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if not file_exists:
-                    writer.writerow(['Title', 'Year', 'tmdbID'])
-                writer.writerow([film_title, release_year, tmdb_id])
+                    writer.writerow(['Title', 'Year', 'tmdbID', 'Link'])
+                writer.writerow([film_title, release_year, tmdb_id, film_url])
         except Exception as e:
             print_to_csv(f"Error saving refreshed data: {str(e)}")
 
-    def is_incomplete_stats_whitelisted(self, film_title: str, release_year: str) -> bool:
-        """Check if a movie is in the incomplete stats whitelist."""
-        key = f"{film_title.lower()}_{release_year}"
-        return key in self.incomplete_stats_lookup
+    def is_incomplete_stats_whitelisted(self, film_title: str, release_year: str, film_url: str = None) -> bool:
+        """Check if a movie is in the incomplete stats whitelist using URL as primary identifier."""
+        if not film_url:
+            return False
+            
+        try:
+            # Check if URL exists in incomplete stats lookup
+            return film_url in self.incomplete_stats_lookup
+                
+        except Exception as e:
+            print_to_csv(f"ERROR checking incomplete stats whitelist: {str(e)}")
+            return False
 
     def add_to_zero_reviews(self, film_title: str, release_year: str, film_url: str):
-        """Add a movie to the zero reviews list."""
+        """Add a movie to the zero reviews list using URL as primary identifier."""
+        if not film_url:
+            return
+            
         try:
-            # Check if movie is already in zero_reviews by URL
-            if any(self.zero_reviews['Link'] == film_url):
+            # Check if URL already exists in lookup
+            if film_url in self.zero_reviews_lookup:
                 return
-             
-            # Create a new row as a DataFrame
-            new_row = pd.DataFrame([[film_title, release_year, '', film_url]], 
-                                 columns=['Title', 'Year', 'Blank', 'Link'])
-            
-            # Append to existing zero reviews
+                
+            # Create new row
+            new_row = pd.DataFrame([{
+                'Title': film_title,
+                'Year': release_year,
+                'Link': film_url,
+                'Blank': ''  # Empty column as per original format
+            }])
+            # Add to DataFrame
             self.zero_reviews = pd.concat([self.zero_reviews, new_row], ignore_index=True)
-                        
-            # Save back to Excel immediately
-            try:
-                self.zero_reviews.to_excel(ZERO_REVIEWS_PATH, index=False)
-            except Exception as excel_error:
-                print_to_csv(f"ERROR saving to Excel: {str(excel_error)}")
-                print_to_csv(f"ERROR type: {type(excel_error)}")
-                raise
-            
+            # Add to lookup
+            self.zero_reviews_lookup[film_url] = len(self.zero_reviews) - 1
+            # Save to Excel
+            self.zero_reviews.to_excel(ZERO_REVIEWS_PATH, index=False)
+            print_to_csv(f"📝 Added {film_title} to zero reviews list")
+                
         except Exception as e:
             print_to_csv(f"ERROR adding to zero reviews: {str(e)}")
-            print_to_csv(f"ERROR type: {type(e)}")
-            print_to_csv(f"ERROR details: {e.__dict__ if hasattr(e, '__dict__') else 'No details available'}")
-            raise  # Re-raise the exception to see the full traceback
 
     def is_zero_reviews(self, film_title: str, release_year: str, film_url: str) -> bool:
-        """Check if a movie is in the zero reviews list."""
-        try:
-            # Check if the URL exists in the zero_reviews DataFrame
-            if film_url:
-                result = any(self.zero_reviews['Link'] == film_url)
-                if result:
-                    # 1 in 15 chance to remove the entry after finding it
-                    if random.random() < (1/15):
-                        # Find the index of the row to remove
-                        idx_to_remove = self.zero_reviews[self.zero_reviews['Link'] == film_url].index[0]
-                        # Remove the row
-                        self.zero_reviews = self.zero_reviews.drop(idx_to_remove)
-                        # Save the updated DataFrame
-                        self.zero_reviews.to_excel(ZERO_REVIEWS_PATH, index=False)
-                        print_to_csv(f"🗑️ Removed {film_title} from zero reviews list")
-                return result
-            
+        """Check if a movie is in the zero reviews list using URL as primary identifier."""
+        if not film_url:
             return False
+            
+        try:
+            # Check if URL exists in zero reviews lookup
+            if film_url in self.zero_reviews_lookup:
+                # 1 in 15 chance to remove the entry after finding it
+                if random.random() < (1/15):
+                    # Get the index from lookup
+                    idx_to_remove = self.zero_reviews_lookup[film_url]
+                    # Remove the row
+                    self.zero_reviews = self.zero_reviews.drop(idx_to_remove)
+                    # Remove from lookup
+                    del self.zero_reviews_lookup[film_url]
+                    # Save the updated DataFrame
+                    self.zero_reviews.to_excel(ZERO_REVIEWS_PATH, index=False)
+                    print_to_csv(f"🗑️ Removed {film_title} from zero reviews list")
+                return True
+            return False
+                
         except Exception as e:
             print_to_csv(f"ERROR checking zero reviews: {str(e)}")
             return False
@@ -898,12 +881,14 @@ def extract_mpaa_rating(driver) -> Optional[str]:
         return None
         
     except Exception as e:
-        print_to_csv(f"Error extracting MPAA rating: {str(e)}")
+        # Only print error if it's not a NoSuchElementError
+        if not isinstance(e, NoSuchElementException):
+            print_to_csv(f"Error extracting MPAA rating: {str(e)}")
         return None
 
 # Initialize stats for MAX_MOVIES_2500
 max_movies_2500_stats = {
-    'film_data': [],
+    'film_data': [],  # Each entry will have Title, Year, tmdbID, and URL fields
     'director_counts': defaultdict(int),
     'actor_counts': defaultdict(int),
     'decade_counts': defaultdict(int),
@@ -913,14 +898,16 @@ max_movies_2500_stats = {
     'country_counts': defaultdict(int)
 }
 
-def add_to_max_movies_2500(film_title: str, release_year: str, tmdb_id: str) -> bool:
+def add_to_max_movies_2500(film_title: str, release_year: str, tmdb_id: str, film_url: str) -> bool:
     """
     Centralized function to add a movie to max_movies_2500_stats if it's not already present.
     Returns True if the movie was added, False if it was already present or if we've reached the limit.
     """
-    # Check if movie already exists
-    if any(movie['Title'] == film_title and movie['Year'] == release_year 
-           for movie in max_movies_2500_stats['film_data']):
+    if not film_url:
+        return False
+        
+    # Check if movie already exists by URL
+    if any(movie['URL'] == film_url for movie in max_movies_2500_stats['film_data']):
         return False
         
     # Check if we've reached the limit
@@ -929,52 +916,66 @@ def add_to_max_movies_2500(film_title: str, release_year: str, tmdb_id: str) -> 
         
     # Add the movie
     max_movies_2500_stats['film_data'].append({
-        'Title': film_title,
-        'Year': release_year,
-        'tmdbID': tmdb_id
+        'Title': film_title,  # For reference only
+        'Year': release_year,  # For reference only
+        'tmdbID': tmdb_id,
+        'URL': film_url  # Primary identifier
     })
     return True
 
-def add_to_continent_stats(continent: str, film_title: str, release_year: str, tmdb_id: str) -> bool:
+def add_to_continent_stats(continent: str, film_title: str, release_year: str, tmdb_id: str, film_url: str) -> bool:
     """
-    Centralized function to add a movie to continent_stats if it's not already present.
-    Returns True if the movie was added, False if it was already present or if we've reached the limit.
-    """
-    # Check if movie already exists
-    if any(movie['Title'] == film_title and movie['Year'] == release_year 
-           for movie in continent_stats[continent]['film_data']):
-        return False
-        
-    # Determine the max limit based on the continent
-    max_limit = (
-        MAX_MOVIES_AFRICA if continent == 'Africa' else
-        MAX_MOVIES_OCEANIA if continent == 'Oceania' else
-        MAX_MOVIES_SOUTH_AMERICA if continent == 'South America' else
-        MAX_MOVIES_CONTINENT
-    )
+    Add a movie to the continent statistics.
     
-    # Check if we've reached the limit
-    if len(continent_stats[continent]['film_data']) >= max_limit:
+    Args:
+        continent: The continent to add the movie to
+        film_title: The title of the movie (for reference only)
+        release_year: The release year of the movie (for reference only)
+        tmdb_id: The TMDB ID of the movie
+        film_url: The URL of the movie (primary identifier)
+        
+    Returns:
+        bool: True if the movie was added, False otherwise
+    """
+    if not film_url:
         return False
         
+    # Check if movie already exists in continent stats
+    for movie in continent_stats[continent]['film_data']:
+        if movie.get('URL') == film_url:
+            return False
+            
     # Add the movie
     continent_stats[continent]['film_data'].append({
         'Title': film_title,
         'Year': release_year,
-        'tmdbID': tmdb_id
+        'tmdbID': tmdb_id,
+        'URL': film_url
     })
     return True
 
-def add_to_runtime_stats(category: str, film_title: str, release_year: str, tmdb_id: str) -> bool:
+def add_to_runtime_stats(category: str, film_title: str, release_year: str, tmdb_id: str, film_url: str) -> bool:
     """
-    Centralized function to add a movie to runtime_stats if it's not already present.
-    Returns True if the movie was added, False if it was already present or if we've reached the limit.
+    Add a movie to the runtime statistics.
+    
+    Args:
+        category: The runtime category to add the movie to
+        film_title: The title of the movie (for reference only)
+        release_year: The release year of the movie (for reference only)
+        tmdb_id: The TMDB ID of the movie
+        film_url: The URL of the movie (primary identifier)
+        
+    Returns:
+        bool: True if the movie was added, False otherwise
     """
-    # Check if movie already exists
-    if any(movie['Title'] == film_title and movie['Year'] == release_year 
-           for movie in runtime_stats[category]['film_data']):
+    if not film_url:
         return False
         
+    # Check if movie already exists in runtime stats
+    for movie in runtime_stats[category]['film_data']:
+        if movie.get('URL') == film_url:
+            return False
+            
     # Determine the max limit based on the category
     max_limit = (
         MAX_180 if category == '180_Minutes_or_Greater' else
@@ -990,20 +991,33 @@ def add_to_runtime_stats(category: str, film_title: str, release_year: str, tmdb
     runtime_stats[category]['film_data'].append({
         'Title': film_title,
         'Year': release_year,
-        'tmdbID': tmdb_id
+        'tmdbID': tmdb_id,
+        'URL': film_url
     })
     return True
 
-def add_to_mpaa_stats(rating: str, film_title: str, release_year: str, tmdb_id: str) -> bool:
+def add_to_mpaa_stats(rating: str, film_title: str, release_year: str, tmdb_id: str, film_url: str) -> bool:
     """
-    Centralized function to add a movie to mpaa_stats if it's not already present.
-    Returns True if the movie was added, False if it was already present or if we've reached the limit.
+    Add a movie to the MPAA rating statistics.
+    
+    Args:
+        rating: The MPAA rating to add the movie to
+        film_title: The title of the movie (for reference only)
+        release_year: The release year of the movie (for reference only)
+        tmdb_id: The TMDB ID of the movie
+        film_url: The URL of the movie (primary identifier)
+        
+    Returns:
+        bool: True if the movie was added, False otherwise
     """
-    # Check if movie already exists
-    if any(movie['Title'] == film_title and movie['Year'] == release_year 
-           for movie in mpaa_stats[rating]['film_data']):
+    if not film_url:
         return False
         
+    # Check if movie already exists in MPAA stats
+    for movie in mpaa_stats[rating]['film_data']:
+        if movie.get('URL') == film_url:
+            return False
+            
     # Determine the max limit based on the rating
     max_limit = (
         MAX_MOVIES_G if rating == 'G' else
@@ -1019,7 +1033,8 @@ def add_to_mpaa_stats(rating: str, film_title: str, release_year: str, tmdb_id: 
     mpaa_stats[rating]['film_data'].append({
         'Title': film_title,
         'Year': release_year,
-        'tmdbID': tmdb_id
+        'tmdbID': tmdb_id,
+        'URL': film_url
     })
     return True
 
@@ -1038,59 +1053,20 @@ class LetterboxdScraper:
         print_to_csv("Initialized Letterboxd Scraper.")
 
     def process_movie_data(self, info, film_title=None, film_url=None):
-        """Process movie data from the whitelist."""
-        try:            
-            # If we have a complete info dict, process it directly without loading the page
-            if isinstance(info, dict):
-                film_title = info.get('Title')
-                release_year = info.get('Year')
+        """Process movie data from the whitelist using URL as the primary identifier."""
+        try:
+            if not info or not film_url:
+                return False
                 
-                # Get whitelist data to check if we have a link
-                whitelist_info, row_idx = self.processor.get_whitelist_data(film_title, release_year, film_url)
+            film_title = info.get('Title')  # Only for display purposes
+            release_year = info.get('Year')  # Only for display purposes
+            tmdb_id = info.get('tmdbID')  # Only for display purposes
+                        
+            # Process using URL as primary identifier
+            if self.processor.is_whitelisted(None, None, film_url):
                 
-                # Check if we need to update a blank link
-                if film_url:
-                    # Get the current link from whitelist
-                    key = f"{film_title.lower()}_{release_year}"
-                    if key in self.processor.whitelist_lookup:
-                        _, _, existing_url = self.processor.whitelist_lookup[key]
-                        # Only proceed with link update if current link is blank
-                        if not existing_url or existing_url == '':
-                            try:
-                                # Load the movie page to verify it's the correct movie
-                                self.driver.get(film_url)
-                                WebDriverWait(self.driver, 10).until(
-                                    EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
-                                )
-                                time.sleep(random.uniform(1.0, 1.5))
-                                
-                                # Extract release year from the page
-                                meta_tag = self.driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
-                                content = meta_tag.get_attribute('content')
-                                if content and '(' in content and ')' in content:
-                                    page_year = content.split('(')[-1].split(')')[0].strip()
-                                    # If years match, update the whitelist with the link
-                                    if page_year == release_year:
-                                        self.processor.update_whitelist(film_title, release_year, info, film_url)
-                                    else:
-                                        print_to_csv(f"⚠️ Year mismatch for {film_title}: expected {release_year}, found {page_year}")
-                                        return False
-                            except Exception as e:
-                                print_to_csv(f"Error verifying movie link: {str(e)}")
-                                return False
-                
-                # Check if movie is in incomplete stats whitelist
-                if self.processor.is_incomplete_stats_whitelisted(film_title, release_year):
-                    # Process the whitelist information directly, regardless of completeness
-                    if info and info != {}:  # Only process if there's at least some data
-                        self.processor.process_whitelist_info(info)
-                        self.valid_movies_count += 1
-                        print_to_csv(f"✅ Processed whitelist data for {info.get('Title')} ({self.valid_movies_count}/{MAX_MOVIES})")
-                        return True
-                    return False
-
-                # If not in incomplete stats whitelist, check for completeness
-                if all([
+                # If info is empty or incomplete, collect fresh data
+                if not info or info == {} or not all([
                     info.get('Title'),
                     info.get('Year'),
                     info.get('Runtime'),
@@ -1102,429 +1078,167 @@ class LetterboxdScraper:
                     info.get('Studios'),
                     info.get('Actors')
                 ]):
-                    # Process the whitelist information directly
-                    self.processor.process_whitelist_info(info)
-                    self.valid_movies_count += 1
-                    print_to_csv(f"✅ Processed whitelist data for {info.get('Title')} ({self.valid_movies_count}/{MAX_MOVIES})")
-                    
-                    # 2% chance to clear the whitelist data
-                    if random.random() < 0.02:
-                        self.processor.update_whitelist(film_title, release_year, {}, film_url)
-                        print_to_csv(f"🤓 Random data audit scheduled for {film_title} ({release_year})")
-                    
-                    return True
-
-            # If info is incomplete, clear the Information cell and let normal scraping handle it
-            if isinstance(info, dict):
-                film_title = info.get('Title')
-                release_year = info.get('Year')
-                tmdb_id = info.get('tmdbID')
-                
-                # Save the movie info to Refreshed_Data.csv
-                if all([film_title, release_year, tmdb_id]):
-                    self.processor.save_refreshed_data(film_title, release_year, tmdb_id)
-                
-                # Clear the Information cell in whitelist
-                if self.processor.is_whitelisted(film_title, release_year):
-                    self.processor.update_whitelist(film_title, release_year, {}, film_url)
-                    print_to_csv(f"🔄 Cleared incomplete data for {film_title}, will rescrape")
-                
-                # Construct URL if not provided
-                if not film_url:
-                    film_url = f"https://letterboxd.com/film/{film_title.lower().replace(' ', '-')}/"
-                
-                # Let the normal scraping flow handle it
-                max_retries = 20
-                for retry in range(max_retries):
                     try:
                         self.driver.get(film_url)
                         WebDriverWait(self.driver, 10).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
                         )
                         time.sleep(random.uniform(1.0, 1.5))
-
-                        # Extract release year
-                        meta_tag = WebDriverWait(self.driver, 10).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
-                        )
-                        content = meta_tag.get_attribute('content')
-                        if content and '(' in content and ')' in content:
-                            release_year = content.split('(')[-1].split(')')[0].strip()
-                        else:
-                            print_to_csv(f"❌ Could not extract release year for {film_title}")
-                            if retry < max_retries - 1:
-                                print_to_csv(f"Retrying... (Attempt {retry + 1}/{max_retries})")
-                                time.sleep(2)
-                                continue
-                            return False
-
-                        # Get fresh data and update whitelist
-                        movie_data = self.update_statistics_for_movie(film_title, release_year, info.get('tmdbID'), self.driver, film_url)
-                        if movie_data:
-                            # Update whitelist with fresh data
-                            if self.processor.update_whitelist(film_title, release_year, movie_data, film_url):
-                                # Process through output channels
-                                self.processor.process_whitelist_info(movie_data)
-                                
-                                # Process runtime category if we have runtime info
-                                runtime = movie_data.get('Runtime')
-                                if runtime:
-                                    categories = []
-                                    if runtime < 91:
-                                        categories.append('90_Minutes_or_Less')
-                                    if runtime < 121:
-                                        categories.append('120_Minutes_or_Less')
-                                    if runtime > 179:
-                                        categories.append('180_Minutes_or_Greater')
-                                    if runtime > 239:
-                                        categories.append('240_Minutes_or_Greater')
-                                    
-                                    for category in categories:
-                                        if add_to_runtime_stats(category, film_title, release_year, movie_data.get('tmdbID')):
-                                            self.processor.update_runtime_statistics(film_title, release_year, movie_data.get('tmdbID'), self.driver, category)
-                                
-                                # Process MPAA rating if we have it
-                                mpaa_rating = movie_data.get('MPAA')
-                                if mpaa_rating and mpaa_rating in MPAA_RATINGS:
-                                    if add_to_mpaa_stats(mpaa_rating, film_title, release_year, movie_data.get('tmdbID')):
-                                        self.processor.update_statistics(mpaa_rating)
-                                
-                                # Process continent data if we have countries
-                                countries = movie_data.get('Countries', [])
-                                for country in countries:
-                                    for continent, country_list in CONTINENTS_COUNTRIES.items():
-                                        if country in country_list:
-                                            if add_to_continent_stats(continent, film_title, release_year, movie_data.get('tmdbID')):
-                                                self.processor.update_continent_statistics(continent)
-                                            break
-                                
-                                # Process MAX_MOVIES_2500 using centralized function
-                                if add_to_max_movies_2500(film_title, release_year, movie_data.get('tmdbID')):
-                                    self.processor.update_max_movies_2500_statistics(film_title, release_year, movie_data.get('tmdbID'))
-                                
-                                return True
-                            else:
-                                print_to_csv(f"❌ Failed to update whitelist for {film_title}")
-                                if retry < max_retries - 1:
-                                    print_to_csv(f"Retrying... (Attempt {retry + 1}/{max_retries})")
-                                    time.sleep(2)
-                                    continue
-                                return False
-                        else:
-                            if retry < max_retries - 1:
-                                print_to_csv(f"Retrying... (Attempt {retry + 1}/{max_retries})")
-                                time.sleep(2)
-                                continue
-                            # On final retry, check if we should add to incomplete stats whitelist
-                            try:
-                                current_year = datetime.now().year
-                                movie_year = int(release_year)
-                                rating_count = 0
-                                page_source = self.driver.page_source
-                                match = re.search(r'ratingCount":(\d+)', page_source)
-                                if match:
-                                    rating_count = int(match.group(1))
-                                
-                                # Check if movie meets criteria for incomplete stats whitelist
-                                if (current_year - movie_year > 5 and 
-                                    rating_count > 50000 and 
-                                    not self.processor.is_incomplete_stats_whitelisted(film_title, release_year)):
-                                    # Add to incomplete stats whitelist
-                                    new_row = pd.DataFrame([{
-                                        'Title': film_title,
-                                        'Year': release_year
-                                    }])
-                                    self.processor.incomplete_stats_whitelist = pd.concat(
-                                        [self.processor.incomplete_stats_whitelist, new_row], 
-                                        ignore_index=True
-                                    )
-                                    self.processor.incomplete_stats_whitelist.to_excel(
-                                        INCOMPLETE_STATS_WHITELIST_PATH, 
-                                        index=False
-                                    )
-                                    # Update lookup dictionary
-                                    key = f"{film_title.lower()}_{release_year}"
-                                    self.processor.incomplete_stats_lookup[key] = True
-                                    print_to_csv(f"📝 Added {film_title} ({release_year}) to incomplete stats whitelist")
-                            except Exception as e:
-                                print_to_csv(f"Error checking incomplete stats whitelist criteria: {str(e)}")
-                            return False
-
-                    except Exception as e:
-                        print_to_csv(f"❌ Error rescraping {film_title}: {str(e)}")
-                        if retry < max_retries - 1:
-                            print_to_csv(f"Retrying... (Attempt {retry + 1}/{max_retries})")
-                            time.sleep(2)
-                            continue
-                        return False
-
-                return False
-
-            # If info is not a dictionary or we have film_url, we need to scrape the data
-            if not isinstance(info, dict):
-                if not film_url:
-                    print_to_csv(f"❌ Need to scrape data for {film_title} but no URL provided")
-                    return
-                
-                try:
-                    # Add retry mechanism for individual movie pages
-                    max_retries = 20
-                    for retry in range(max_retries):
-                        try:
-                            self.driver.get(film_url)
-                            # Wait for page to load
-                            WebDriverWait(self.driver, 10).until(
-                                EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
-                            )
-                            time.sleep(random.uniform(1.0, 1.5))
-                            break
-                        except Exception as e:
-                            if retry == max_retries - 1:
-                                print_to_csv(f"❌ Error loading movie page for {film_title}: {str(e)}")
-                                return
-                            print_to_csv(f"Retry {retry + 1}/{max_retries} loading movie page for {film_title}")
-                            time.sleep(2)
-                except Exception as e:
-                    print_to_csv(f"❌ Error loading movie page for {film_title}: {str(e)}")
-                    return
-
-                # Extract release year
-                try:
-                    meta_tag = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
-                    )
-                    content = meta_tag.get_attribute('content')
-                    if content and '(' in content and ')' in content:
-                        release_year = content.split('(')[-1].split(')')[0].strip()
-                    else:
-                        print_to_csv(f"❌ Could not extract release year for {film_title}")
-                        return False
-                except Exception as e:
-                    print_to_csv(f"❌ Error extracting release year for {film_title}: {str(e)}")
-                    return
-
-                # Check if movie is in whitelist first
-                whitelist_info, _ = self.processor.get_whitelist_data(film_title, release_year, film_url)
-                    
-                # Extract rating count
-                rating_count = 0
-                try:
-                    page_source = self.driver.page_source
-                    match = re.search(r'ratingCount":(\d+)', page_source)
-                    if match:
-                        rating_count = int(match.group(1))
-                except Exception as e:
-                    print_to_csv(f"Error extracting rating count: {str(e)}")
-
-                # Check 1: Rating count minimum
-                if rating_count < MIN_RATING_COUNT:
-                    print_to_csv(f"❌ {film_title} was not added due to insufficient ratings: {rating_count} ratings.")
-                    self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient ratings (< 1000)'])
-                    return
-
-                # If movie is in whitelist but has insufficient ratings, reject it
-                if whitelist_info and rating_count < MIN_RATING_COUNT:
-                    print_to_csv(f"❌ {film_title} ({release_year}) was not added due to insufficient ratings: {rating_count} ratings.")
-                    self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient ratings (< 1000)'])
-                    return
-
-                # If movie is in whitelist and has sufficient ratings, process it
-                if whitelist_info:
-                    self.process_movie_data(whitelist_info, film_title, film_url)
-                    return
-
-                # Extract TMDb ID
-                try:
-                    tmdb_id = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.TAG_NAME, 'body'))
-                    ).get_attribute('data-tmdb-id')
-                except Exception as e:
-                    tmdb_id = None
-                    print_to_csv(f"TMDb ID not found: {e}")
-
-                # Update statistics and collect data
-                self.update_statistics_for_movie(film_title, release_year, tmdb_id, self.driver, film_url)
-                
-                # Extract runtime
-                runtime = None
-                try:
-                    runtime_element = WebDriverWait(self.driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, 'p.text-link.text-footer'))
-                    )
-                    runtime_text = runtime_element.text
-                    match = re.search(r'(\d+)\s*min(?:s)?', runtime_text)
-                    if match:
-                        runtime = int(match.group(1))
-                except Exception as e:
-                    print_to_csv(f"Error extracting runtime: {str(e)}")
-                    runtime = None
-
-                # Extract languages
-                movie_languages = set()
-                try:                    
-                    headings = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details h3')
-                    
-                    for heading in headings:
-                        span = heading.find_element(By.TAG_NAME, 'span')
-                        heading_text = span.get_attribute('textContent').strip() if span else heading.get_attribute('textContent').strip()
                         
-                        if any(lang in heading_text for lang in ["Language", "Primary Language", "Languages", "Primary Languages"]):
-                            try:
-                                sluglist = heading.find_element(By.XPATH, "following-sibling::div[contains(@class, 'text-sluglist')]")
+                        # Extract basic info
+                        meta_tag = self.driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
+                        release_year = None
+                        if meta_tag:
+                            release_year_content = meta_tag.get_attribute('content')
+                            release_year = release_year_content.split('(')[-1].strip(')')
+
+                        # Extract rating count
+                        rating_count = 0
+                        try:
+                            page_source = self.driver.page_source
+                            match = re.search(r'ratingCount":(\d+)', page_source)
+                            if match:
+                                rating_count = int(match.group(1))
+                            
+                            # Extract TMDB ID from body tag
+                            tmdb_match = re.search(r'data-tmdb-id="(\d+)"', page_source)
+                            if tmdb_match:
+                                tmdb_id = tmdb_match.group(1)
+                            else:
+                                print_to_csv(f"No TMDB ID found in page source for {film_title}")
+                        except Exception as e:
+                            print_to_csv(f"Error extracting rating count or TMDB ID: {str(e)}")
+                        
+                        # Extract runtime
+                        runtime = None
+                        try:
+                            runtime_element = WebDriverWait(self.driver, 10).until(
+                                EC.presence_of_element_located((By.CSS_SELECTOR, 'p.text-link.text-footer'))
+                            )
+                            runtime_text = runtime_element.text
+                            match = re.search(r'(\d+)\s*min(?:s)?', runtime_text)
+                            if match:
+                                runtime = int(match.group(1))
+                        except Exception as e:
+                            print_to_csv(f"Error extracting runtime: {str(e)}")
+                        
+        # Extract directors
+                        movie_directors = []
+                        try:
+                            director_elements = self.driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
+                            movie_directors = [director.text.strip() for director in director_elements if director.text.strip()]
+                        except Exception as e:
+                            print_to_csv(f"Error extracting directors: {str(e)}")
+                        
+                        # Extract actors
+                        movie_actors = []
+                        try:
+                            actor_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
+                            movie_actors = [actor.text.strip() for actor in actor_elements if actor.text.strip()]
+                        except Exception as e:
+                            print_to_csv(f"Error extracting actors: {str(e)}")
+                        
+                        # Extract genres
+                        movie_genres = []
+                        try:
+                            genre_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]')
+                            movie_genres = [genre.get_attribute('textContent').strip() for genre in genre_elements 
+                                          if genre.get_attribute('textContent').strip() and 
+                                          not any(char in genre.get_attribute('textContent').strip() for char in ['…', 'Show All'])]
+                        except Exception as e:
+                            print_to_csv(f"Error extracting genres: {str(e)}")
+                        
+                        # Extract studios
+                        movie_studios = []
+                        try:
+                            studio_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/studio/"]')
+                            movie_studios = [studio.get_attribute('textContent').strip() for studio in studio_elements if studio.get_attribute('textContent').strip()]
+                        except Exception as e:
+                            print_to_csv(f"Error extracting studios: {str(e)}")
+                        
+                        # Extract languages
+                        movie_languages = set()
+                        try:
+                            headings = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details h3')
+                            for heading in headings:
+                                span = heading.find_element(By.TAG_NAME, 'span')
+                                heading_text = span.get_attribute('textContent').strip() if span else heading.get_attribute('textContent').strip()
                                 
-                                if sluglist:
-                                    p_tag = sluglist.find_element(By.TAG_NAME, 'p')
-                                    language_elements = p_tag.find_elements(By.CSS_SELECTOR, 'a.text-slug[href*="/films/language/"]')
-                                    
-                                    for language in language_elements:
-                                        language_name = language.get_attribute('textContent').strip()
-                                        if language_name:
-                                            movie_languages.add(language_name)
-                            except Exception:
-                                pass
-                except Exception:
-                    pass
-
-                # Extract MPAA rating
-                mpaa_rating = None
-                try:
-                    mpaa_rating = extract_mpaa_rating(self.driver)
-                except Exception as e:
-                    print_to_csv(f"Error extracting MPAA rating: {str(e)}")
-
-                # Extract directors
-                movie_directors = []
-                try:
-                    director_elements = self.driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
-                    for director in director_elements:
-                        director_name = director.text.strip()
-                        if director_name:
-                            movie_directors.append(director_name)
-                except Exception:
-                    pass
-
-                # Extract actors
-                movie_actors = []
-                try:
-                    actor_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
-                    for actor in actor_elements:
-                        actor_name = actor.text.strip()
-                        if actor_name:
-                            movie_actors.append(actor_name)
-                except Exception:
-                    pass
-
-                # Extract genres
-                movie_genres = []
-                try:
-                    genre_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]')
-                    for genre in genre_elements:
-                        genre_name = genre.get_attribute('textContent').strip()
-                        if genre_name and not any(char in genre_name for char in ['…', 'Show All']):
-                            movie_genres.append(genre_name)
-                except Exception:
-                    pass
-
-                # Extract studios
-                movie_studios = []
-                try:
-                    studio_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/studio/"]')
-                    for studio in studio_elements:
-                        studio_name = studio.get_attribute('textContent').strip()
-                        if studio_name:
-                            movie_studios.append(studio_name)
-                except Exception:
-                    pass
-
-                # Extract countries
-                movie_countries = []
-                try:
-                    country_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]')
-                    for country in country_elements:
-                        country_name = country.get_attribute('textContent').strip()
-                        if country_name:
-                            movie_countries.append(country_name)
-                except Exception as e:
-                    print_to_csv(f"Error extracting countries: {str(e)}")
-                    movie_countries = []
-
-                # Create movie data dictionary
-                movie_data = {
-                    'Title': film_title,
-                    'Year': release_year,
-                    'tmdbID': tmdb_id,
-                    'MPAA': mpaa_rating,
-                    'Runtime': runtime,
-                    'RatingCount': rating_count,
-                    'Languages': list(movie_languages),
-                    'Countries': movie_countries,
-                    'Decade': (int(release_year) // 10) * 10,
-                    'Directors': movie_directors,
-                    'Genres': movie_genres,
-                    'Studios': movie_studios,
-                    'Actors': movie_actors
-                }
-
-            # If we have valid info dict, process it normally
-            if isinstance(info, dict):
-                film_title = info.get('Title')
-                release_year = info.get('Year')
-                tmdb_id = info.get('tmdbID')
+                                if any(lang in heading_text for lang in ["Language", "Primary Language", "Languages", "Primary Languages"]):
+                                    try:
+                                        sluglist = heading.find_element(By.XPATH, "following-sibling::div[contains(@class, 'text-sluglist')]")
+                                        if sluglist:
+                                            p_tag = sluglist.find_element(By.TAG_NAME, 'p')
+                                            language_elements = p_tag.find_elements(By.CSS_SELECTOR, 'a.text-slug[href*="/films/language/"]')
+                                            for language in language_elements:
+                                                language_name = language.get_attribute('textContent').strip()
+                                                if language_name:
+                                                    movie_languages.add(language_name)
+                                    except Exception:
+                                        pass
+                        except Exception as e:
+                            print_to_csv(f"Error extracting languages: {str(e)}")
+                        
+                        # Extract countries
+                        movie_countries = []
+                        try:
+                            country_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]')
+                            movie_countries = [country.get_attribute('textContent').strip() for country in country_elements if country.get_attribute('textContent').strip()]
+                        except Exception as e:
+                            print_to_csv(f"Error extracting countries: {str(e)}")
+                        
+                        # Extract MPAA rating
+                        mpaa_rating = None
+                        try:
+                            mpaa_rating = extract_mpaa_rating(self.driver)
+                        except Exception as e:
+                            print_to_csv(f"Error extracting MPAA rating: {str(e)}")
+                        
+                        # Create updated movie data
+                        info = {
+                            "Title": film_title,
+                            "Year": release_year,
+                            "tmdbID": tmdb_id,
+                            "MPAA": mpaa_rating,
+                            "Runtime": runtime,
+                            "RatingCount": rating_count,
+                            "Languages": list(movie_languages),
+                            "Countries": movie_countries,
+                            "Decade": (int(release_year) // 10) * 10 if release_year else None,
+                            "Directors": movie_directors,
+                            "Genres": movie_genres,
+                            "Studios": movie_studios,
+                            "Actors": movie_actors
+                        }
+                        
+                        # Update whitelist with fresh data
+                        if self.processor.update_whitelist(film_title, release_year, info, film_url):
+                            print_to_csv(f"📝 Successfully updated whitelist data for {film_title}")
+                    except Exception as e:
+                        print_to_csv(f"Error collecting fresh data for {film_title}: {str(e)}")
+                        return False
                 
-                if not all([film_title, release_year]):
-                    return
-
                 # Process the whitelist information
-                self.processor.process_whitelist_info(info)
+                self.processor.process_whitelist_info(info, film_url)
+                self.valid_movies_count += 1
+                print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
                 
-                # Process runtime category if we have runtime info
-                runtime = info.get('Runtime')
-                if runtime:
-                    categories = []
-                    if runtime < 91:
-                        categories.append('90_Minutes_or_Less')
-                    if runtime < 121:
-                        categories.append('120_Minutes_or_Less')
-                    if runtime > 179:
-                        categories.append('180_Minutes_or_Greater')
-                    if runtime > 239:
-                        categories.append('240_Minutes_or_Greater')
-                    
-                    for category in categories:
-                        if add_to_runtime_stats(category, film_title, release_year, tmdb_id):
-                            self.processor.update_runtime_statistics(film_title, release_year, tmdb_id, self.driver, category)
-                
-                # Process MPAA rating if we have it
-                mpaa_rating = info.get('MPAA')
-                if mpaa_rating and mpaa_rating in MPAA_RATINGS:
-                    if add_to_mpaa_stats(mpaa_rating, film_title, release_year, tmdb_id):
-                        self.processor.update_statistics(mpaa_rating)
-                
-                # Process continent data if we have countries
-                countries = info.get('Countries', [])
-                for country in countries:
-                    for continent, country_list in CONTINENTS_COUNTRIES.items():
-                        if country in country_list:
-                            if add_to_continent_stats(continent, film_title, release_year, tmdb_id):
-                                self.processor.update_continent_statistics(continent)
-                            break
-                
-                # Process MAX_MOVIES_2500 using centralized function
-                if add_to_max_movies_2500(film_title, release_year, tmdb_id):
-                    self.processor.update_max_movies_2500_statistics(film_title, release_year, tmdb_id)
-                
-                # Add to unfiltered_approved if not already in whitelist
-                if not self.processor.is_whitelisted(film_title, release_year):
-                    if not any(film_title.lower() == movie[0].lower() and release_year == movie[1] for movie in self.processor.unfiltered_approved):
-                        self.processor.unfiltered_approved.append([film_title, release_year, tmdb_id, film_url])
+                # 2% chance to clear the whitelist data for random auditing
+                if random.random() < 0.02:
+                    self.processor.update_whitelist(film_title, release_year, {}, film_url)
+                    print_to_csv(f"🤓 Random data audit scheduled for {film_title} ({release_year})")
                 
                 return True
             
+            # If not whitelisted, process as a new movie
+            self.process_approved_movie(film_title, release_year, tmdb_id, film_url, 'unfiltered')
+            return True
+                
         except Exception as e:
             print_to_csv(f"Error processing movie data: {str(e)}")
             print_to_csv(f"Error type: {type(e)}")
             print_to_csv(f"Error details: {e.__dict__ if hasattr(e, '__dict__') else 'No details available'}")
-            # Don't raise the exception, just continue
+            return False
 
     def scrape_movies(self):
         seen_titles = set()  # <-- Add this at the start of the method
@@ -1604,7 +1318,7 @@ class LetterboxdScraper:
                             release_year = film_title.split('(')[-1].split(')')[0].strip()
                         
                         # Just check if title exists in blacklist, don't try to get release year yet
-                        is_blacklisted = self.processor.is_blacklisted(film_title, release_year, film_url, None)  # Pass None as driver
+                        is_blacklisted = self.processor.is_blacklisted(None, None, film_url, None)  # Pass None as driver
                         film_data_list.append({
                             'title': film_title,
                             'url': film_url,
@@ -1634,20 +1348,17 @@ class LetterboxdScraper:
                 film_url = film_data['url']
                 release_year = film_data['release_year']
 
-                # If we've seen this title before, require title+year match
-                if film_title.lower() in seen_titles:
-                    whitelist_info, _ = self.processor.get_whitelist_data(film_title, release_year, film_url)
-                else:
-                    whitelist_info, _ = self.processor.get_whitelist_data(film_title, film_url=film_url)
+                # Get whitelist data using URL only
+                whitelist_info, _ = self.processor.get_whitelist_data(None, None, film_url)
 
-                # After processing, add the title to seen_titles
+                # After processing, add the title to seen_titles for reference only
                 seen_titles.add(film_title.lower())
 
                 # Increment total_titles for each movie we process, including blacklisted ones
                 self.total_titles += 1
                 
                 # Check if movie is in zero reviews list
-                if self.processor.is_zero_reviews(film_title, release_year, film_url):
+                if self.processor.is_zero_reviews(None, None, film_url):
                     print_to_csv(f"📊 {film_title} is in zero reviews list. Skipping.")
                     continue
                 
@@ -1686,13 +1397,18 @@ class LetterboxdScraper:
                             match = re.search(r'ratingCount":(\d+)', page_source)
                             if match:
                                 rating_count = int(match.group(1))
+                            
+                            # Extract TMDB ID from body tag
+                            tmdb_match = re.search(r'data-tmdb-id="(\d+)"', page_source)
+                            if tmdb_match:
+                                tmdb_id = tmdb_match.group(1)
                         except Exception as e:
-                            print_to_csv(f"Error extracting rating count: {str(e)}")
-
+                            print_to_csv(f"Error extracting rating count or TMDB ID: {str(e)}")
+                        
                         # Check if movie has zero reviews
                         if rating_count == 0:
                             print_to_csv(f"📊 {film_title} has no reviews. Adding to zero reviews list.")
-                            self.processor.add_to_zero_reviews(film_title, release_year, film_url)
+                            self.processor.add_to_zero_reviews(None, None, film_url)
                             self.processor.rejected_data.append([film_title, release_year, None, 'Zero reviews'])
                             break  # Break out of retry loop and continue to next movie
                         
@@ -1703,7 +1419,7 @@ class LetterboxdScraper:
                             break  # Break out of retry loop since this is a permanent rejection
                         
                         # Check 2: Blacklist
-                        if self.processor.is_blacklisted(film_title, release_year, film_url, self.driver):
+                        if self.processor.is_blacklisted(None, None, film_url, self.driver):
                             print_to_csv(f"❌ {film_title} was not added due to being blacklisted.")
                             self.processor.rejected_data.append([film_title, release_year, None, 'Blacklisted'])
                             break  # Break out of retry loop since this is a permanent rejection
@@ -1729,200 +1445,81 @@ class LetterboxdScraper:
                                 print_to_csv(f"Retrying... (Attempt {retry + 1}/{movie_retries})")
                                 time.sleep(2)
                                 continue
-                            break
                             
-                        if runtime < MIN_RUNTIME:
-                            print_to_csv(f"❌ {film_title} was not added due to a short runtime of {runtime} minutes.")
-                            self.processor.rejected_data.append([film_title, release_year, None, f'Short runtime of {runtime} minutes'])
-                            self.processor.add_to_blacklist(film_title, release_year, f'Short runtime of {runtime} minutes')
-                            break  # Break out of retry loop since this is a permanent rejection
-                        
-                        # Check 4: TMDB ID
-                        try:
-                            body_tag = WebDriverWait(self.driver, 10).until(
-                                EC.presence_of_element_located((By.TAG_NAME, 'body'))
-                            )
-                            tmdb_id = body_tag.get_attribute('data-tmdb-id')
-                        except Exception as e:
-                            tmdb_id = None
-                            print_to_csv(f"Error extracting TMDB ID for {film_title}: {str(e)}")
-                        
-                        if not tmdb_id:
-                            print_to_csv(f"❌ {film_title} was not added due to missing TMDB ID.")
-                            self.processor.rejected_data.append([film_title, release_year, None, 'Missing TMDB ID'])
-                            self.processor.unfiltered_denied.append([film_title, release_year, None, film_url])
-                            break  # Break out of retry loop since this is a permanent rejection
-                        
-                        # Check 5: Keywords and Genres
-                        keywords, genres = self.processor.fetch_tmdb_details(tmdb_id)
-                        
-                        # Check keywords
-                        matching_keywords = [k for k in FILTER_KEYWORDS if k in keywords]
-                        if matching_keywords:
-                            rejection_reason = f"due to being a {', '.join(matching_keywords)}."
-                            print_to_csv(f"❌ {film_title} was not added {rejection_reason}")
-                            self.processor.rejected_data.append([film_title, release_year, None, rejection_reason])
-                            self.processor.add_to_blacklist(film_title, release_year, rejection_reason)
-                            break  # Break out of retry loop since this is a permanent rejection
-                        
-                        # Check genres
-                        matching_genres = [g for g in FILTER_GENRES if g in genres]
-                        if matching_genres:
-                            rejection_reason = f"due to being a {', '.join(matching_genres)}."
-                            print_to_csv(f"❌ {film_title} was not added {rejection_reason}")
-                            self.processor.rejected_data.append([film_title, release_year, None, rejection_reason])
-                            self.processor.add_to_blacklist(film_title, release_year, rejection_reason)
-                            break  # Break out of retry loop since this is a permanent rejection
-                        
-                        # Now do the full scrape and process the movie
+                        # If we get here, the movie passed all checks
+                        # Create movie data dictionary
                         movie_data = {
                             'Title': film_title,
                             'Year': release_year,
-                            'tmdbID': tmdb_id,
+                            'tmdbID': None,  # We don't need TMDB ID for processing
+                            'MPAA': None,  # We don't need MPAA for processing
                             'Runtime': runtime,
-                            'RatingCount': rating_count
+                            'RatingCount': rating_count,
+                            'Languages': [],
+                            'Countries': [],
+                            'Decade': (int(release_year) // 10) * 10 if release_year else None,
+                            'Directors': [],
+                            'Genres': [],
+                            'Studios': [],
+                            'Actors': [],
+                            'Link': film_url
                         }
-
-                        # Extract directors
-                        try:
-                            director_elements = self.driver.find_elements(By.CSS_SELECTOR, 'span.directorlist a.contributor')
-                            movie_data['Directors'] = [director.text.strip() for director in director_elements if director.text.strip()]
-                        except Exception as e:
-                            print_to_csv(f"Error extracting directors: {str(e)}")
-                            movie_data['Directors'] = []
-
-                        # Extract actors
-                        try:
-                            actor_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
-                            movie_data['Actors'] = [actor.text.strip() for actor in actor_elements if actor.text.strip()]
-                        except Exception as e:
-                            print_to_csv(f"Error extracting actors: {str(e)}")
-                            movie_data['Actors'] = []
-
-                        # Extract genres
-                        try:
-                            genre_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]')
-                            movie_data['Genres'] = [genre.get_attribute('textContent').strip() for genre in genre_elements 
-                                                  if genre.get_attribute('textContent').strip() and 
-                                                  not any(char in genre.get_attribute('textContent').strip() for char in ['…', 'Show All'])]
-                        except Exception as e:
-                            print_to_csv(f"Error extracting genres: {str(e)}")
-                            movie_data['Genres'] = []
-
-                        # Extract studios
-                        try:
-                            studio_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/studio/"]')
-                            movie_data['Studios'] = [studio.get_attribute('textContent').strip() for studio in studio_elements if studio.get_attribute('textContent').strip()]
-                        except Exception as e:
-                            print_to_csv(f"Error extracting studios: {str(e)}")
-                            movie_data['Studios'] = []
-
-                        # Extract languages
-                        movie_languages = set()
-                        try:
-                            headings = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details h3')
-                            for heading in headings:
-                                span = heading.find_element(By.TAG_NAME, 'span')
-                                heading_text = span.get_attribute('textContent').strip() if span else heading.get_attribute('textContent').strip()
-                                
-                                if any(lang in heading_text for lang in ["Language", "Primary Language", "Languages", "Primary Languages"]):
-                                    try:
-                                        sluglist = heading.find_element(By.XPATH, "following-sibling::div[contains(@class, 'text-sluglist')]")
-                                        if sluglist:
-                                            p_tag = sluglist.find_element(By.TAG_NAME, 'p')
-                                            language_elements = p_tag.find_elements(By.CSS_SELECTOR, 'a.text-slug[href*="/films/language/"]')
-                                            for language in language_elements:
-                                                language_name = language.get_attribute('textContent').strip()
-                                                if language_name:
-                                                    movie_languages.add(language_name)
-                                                    self.processor.language_counts[language_name] = self.processor.language_counts.get(language_name, 0) + 1
-                                    except Exception:
-                                        pass
-                        except Exception as e:
-                            print_to_csv(f"Error extracting languages: {str(e)}")
-                        movie_data['Languages'] = list(movie_languages)
-
-                        # Extract countries
-                        try:
-                            country_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]')
-                            movie_data['Countries'] = [country.get_attribute('textContent').strip() for country in country_elements if country.get_attribute('textContent').strip()]
-                        except Exception as e:
-                            print_to_csv(f"Error extracting countries: {str(e)}")
-                            movie_data['Countries'] = []
-
-                        # Add decade
-                        movie_data['Decade'] = (int(release_year) // 10) * 10
-
-                        # Add to unfiltered_approved
-                        if not any(film_title.lower() == movie[0].lower() and release_year == movie[1] for movie in self.processor.unfiltered_approved):
-                            # Only add to unfiltered_approved if the movie is not in the whitelist
-                            if not self.processor.is_whitelisted(film_title, release_year):
-                                self.processor.unfiltered_approved.append([film_title, release_year, tmdb_id, film_url])
-                                self.valid_movies_count += 1  # Increment the count since it's an approved movie
-                                print_to_csv(f"✅ Successfully approved {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
-                                
-                                # Process runtime category
-                                if runtime:
-                                    self.processor.process_runtime_category(film_title, release_year, tmdb_id, runtime, self.driver)
-                                
-                                # Process MPAA rating
-                                mpaa_rating = extract_mpaa_rating(self.driver)
-                                if mpaa_rating and mpaa_rating in MPAA_RATINGS:
-                                    if add_to_mpaa_stats(mpaa_rating, film_title, release_year, tmdb_id):
-                                        self.processor.update_statistics(mpaa_rating)
-                                
-                                # Process continent data
-                                for country in movie_data['Countries']:
-                                    for continent, country_list in CONTINENTS_COUNTRIES.items():
-                                        if country in country_list:
-                                            if add_to_continent_stats(continent, film_title, release_year, tmdb_id):
-                                                self.processor.update_continent_statistics(continent)
-                                            break
-                                
-                                # Process MAX_MOVIES_2500
-                                if add_to_max_movies_2500(film_title, release_year, tmdb_id):
-                                    self.processor.update_max_movies_2500_statistics(film_title, release_year, tmdb_id)
-
-                        # Update statistics
-                        self.update_statistics_for_movie(film_title, release_year, tmdb_id, self.driver, film_url)
-                        break  # Successfully processed the movie, break out of retry loop
-
+                        
+                        # Process the movie data
+                        self.process_movie_data(movie_data, film_title, film_url)
+                        break  # Break out of retry loop since we successfully processed the movie
+                        
                     except Exception as e:
-                        print_to_csv(f"❌ Error processing {film_title}: {str(e)}")
-                        if retry < movie_retries - 1:
-                            print_to_csv(f"Retrying... (Attempt {retry + 1}/{movie_retries})")
+                        if retry == movie_retries - 1:
+                            print_to_csv(f"❌ Failed to process movie after {movie_retries} attempts: {str(e)}")
+                            self.processor.rejected_data.append([film_title, release_year, None, f'Error: {str(e)}'])
+                        else:
+                            print_to_csv(f"Retry {retry + 1}/{movie_retries} processing movie: {str(e)}")
                             time.sleep(2)
                             continue
-                        raise Exception(f"Failed to process {film_title} after {movie_retries} attempts")
-
+            
             self.page_number += 1
-            time.sleep(random.uniform(1.0, 1.5))
-
-        # If we reach here, we've successfully completed scraping
-        return
 
     def process_approved_movie(self, film_title: str, release_year: str, tmdb_id: str, film_url: str, approval_type: str):
+        """Process an approved movie and extract all its metadata using URL as primary identifier"""
+              
+        # Never process whitelisted URLs through this function
+        if self.processor.is_whitelisted(None, None, film_url):
+            return
+
         if self.valid_movies_count >= MAX_MOVIES:
             return
 
-        movie_identifier = (film_title.lower(), release_year)
-        if movie_identifier in self.processor.added_movies:
+        # Check if movie was already added using URL
+        if any(movie.get('Link') == film_url for movie in self.processor.film_data):
             return
 
-        # Add the movie to the filtered films data only if we haven't reached MAX_MOVIES
-        if len(self.processor.film_data) < MAX_MOVIES:
-            self.processor.film_data.append({
-                'Title': film_title,
-                'Year': release_year,
-                'tmdbID': tmdb_id
-            })
-            self.processor.added_movies.add((film_title.lower(), release_year))
-            self.valid_movies_count += 1
-            print_to_csv(f"✅ Successfully processed {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
+        # Extract TMDB ID from page source
+        try:
+            page_source = self.driver.page_source
+            tmdb_match = re.search(r'data-tmdb-id="(\d+)"', page_source)
+            if tmdb_match:
+                tmdb_id = tmdb_match.group(1)
+            else:
+                print_to_csv(f"❌ {film_title} was not added due to missing TMDB ID.")
+                self.processor.rejected_data.append([film_title, release_year, None, 'Missing TMDB ID'])
+                self.processor.unfiltered_denied.append([film_title, release_year, None, film_url])
+                return
+        except Exception as e:
+            print_to_csv(f"Error extracting TMDB ID: {str(e)}")
+            print_to_csv(f"❌ {film_title} was not added due to missing TMDB ID.")
+            self.processor.rejected_data.append([film_title, release_year, None, 'Missing TMDB ID'])
+            self.processor.unfiltered_denied.append([film_title, release_year, None, film_url])
+            return
 
-        # Use centralized function for MAX_MOVIES_2500
-        if add_to_max_movies_2500(film_title, release_year, tmdb_id):
-            self.processor.update_max_movies_2500_statistics(film_title, release_year, tmdb_id)
+        # Extract rating count
+        rating_count = 0
+        try:
+            match = re.search(r'ratingCount":(\d+)', page_source)
+            if match:
+                rating_count = int(match.group(1))
+        except Exception as e:
+            print_to_csv(f"Error extracting rating count: {str(e)}")
 
         # Extract runtime using Selenium
         runtime = None
@@ -1934,19 +1531,169 @@ class LetterboxdScraper:
         except Exception:
             runtime = None
 
-        self.processor.process_runtime_category(film_title, release_year, tmdb_id, runtime, self.driver)
-        self.update_statistics_for_movie(film_title, release_year, tmdb_id, self.driver, film_url)
+        # Check if movie has zero reviews
+        if rating_count == 0:
+            print_to_csv(f"📊 {film_title} has no reviews. Adding to zero reviews list.")
+            self.processor.add_to_zero_reviews(film_title, release_year, film_url)
+            self.processor.rejected_data.append([film_title, release_year, None, 'Zero reviews'])
+            return
 
-        # Only add to unfiltered_approved if the movie is not in the whitelist
-        if not self.processor.is_whitelisted(film_title, release_year):
-            if not any(film_title.lower() == movie[0].lower() and release_year == movie[1] for movie in self.processor.unfiltered_approved):
-                self.processor.unfiltered_approved.append([film_title, release_year, tmdb_id, film_url])
+        # Check minimum rating count
+        if rating_count < MIN_RATING_COUNT:
+            print_to_csv(f"❌ {film_title} was not added due to insufficient ratings: {rating_count} ratings.")
+            self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient ratings (< 1000)'])
+            return
 
-    def update_max_movies_2500_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver):
-        """Update statistics for the given movie for MAX_MOVIES_2500."""
-        # Find the movie in film_data
+        if runtime is None:
+            print_to_csv(f"❌ {film_title} was not added due to missing runtime.")
+            self.processor.rejected_data.append([film_title, release_year, None, 'Missing runtime'])
+            self.processor.unfiltered_denied.append([film_title, release_year, None, film_url])
+            return
+
+        if runtime < MIN_RUNTIME:
+            print_to_csv(f"❌ {film_title} was not added due to a short runtime of {runtime} minutes.")
+            self.processor.rejected_data.append([film_title, release_year, None, f'Short runtime of {runtime} minutes'])
+            self.processor.add_to_blacklist(film_title, release_year, f'Short runtime of {runtime} minutes', film_url)
+            return
+
+        # Check for blacklisted keywords and genres
+        tmdb_data = self.processor.fetch_tmdb_details(tmdb_id)
+        if tmdb_data is None:
+            print_to_csv(f"❌ {film_title} was not added due to failed TMDB data fetch.")
+            self.processor.rejected_data.append([film_title, release_year, None, 'Failed TMDB data fetch'])
+            self.processor.unfiltered_denied.append([film_title, release_year, None, film_url])
+            return
+            
+        keywords, genres = tmdb_data
+        
+        # Check keywords - case insensitive comparison
+        matching_keywords = [k for k in FILTER_KEYWORDS if k.lower() in [kw.lower() for kw in keywords]]
+        if matching_keywords:
+            rejection_reason = f"due to being a {', '.join(matching_keywords)}."
+            print_to_csv(f"❌ {film_title} was not added {rejection_reason}")
+            self.processor.rejected_data.append([film_title, release_year, None, rejection_reason])
+            self.processor.add_to_blacklist(film_title, release_year, rejection_reason, film_url)
+            return
+        
+        # Check genres - case insensitive comparison
+        matching_genres = [g for g in FILTER_GENRES if g.lower() in [gen.lower() for gen in genres]]
+        if matching_genres:
+            rejection_reason = f"due to being a {', '.join(matching_genres)}."
+            print_to_csv(f"❌ {film_title} was not added {rejection_reason}")
+            self.processor.rejected_data.append([film_title, release_year, None, rejection_reason])
+            self.processor.add_to_blacklist(film_title, release_year, rejection_reason, film_url)
+            return
+
+        # If we reach here, the movie is approved
+        self.valid_movies_count += 1
+        print_to_csv(f"✅ {film_title} was approved ({self.valid_movies_count}/{MAX_MOVIES})")
+        
+        # Add to film data
+        self.processor.film_data.append({
+            'Title': film_title,
+            'Year': release_year,
+            'tmdbID': tmdb_id,
+            'Link': film_url
+        })
+
+        # Add to max_movies_2500_stats if we haven't reached the limit
+        if len(max_movies_2500_stats['film_data']) < MAX_MOVIES_2500:
+            max_movies_2500_stats['film_data'].append({
+                'Title': film_title,
+                'Year': release_year,
+                'tmdbID': tmdb_id,
+                'Link': film_url
+            })
+            # Update statistics for this movie
+            self.update_max_movies_2500_statistics(film_title, release_year, tmdb_id, self.driver, film_url)
+
+        # Add to MPAA stats if applicable
+        mpaa_rating = extract_mpaa_rating(self.driver)
+        if mpaa_rating in MPAA_RATINGS:
+            # Check if we've reached the limit for this rating
+            max_limit = (
+                MAX_MOVIES_G if mpaa_rating == 'G' else
+                MAX_MOVIES_NC17 if mpaa_rating == 'NC-17' else
+                MAX_MOVIES_MPAA
+            )
+            if len(mpaa_stats[mpaa_rating]['film_data']) < max_limit:
+                mpaa_stats[mpaa_rating]['film_data'].append({
+                    'Title': film_title,
+                    'Year': release_year,
+                    'tmdbID': tmdb_id,
+                    'Link': film_url
+                })
+                # Update MPAA statistics
+                self.update_statistics(mpaa_rating, film_url)
+
+        # Add to runtime stats if applicable
+        if runtime is not None:
+            categories = []
+            if runtime < 91:
+                categories.append('90_Minutes_or_Less')
+            if runtime < 121:
+                categories.append('120_Minutes_or_Less')
+            if runtime > 179:
+                categories.append('180_Minutes_or_Greater')
+            if runtime > 239:
+                categories.append('240_Minutes_or_Greater')
+
+            for category in categories:
+                # Check if we've reached the limit for this category
+                max_limit = (
+                    MAX_180 if category == '180_Minutes_or_Greater' else
+                    MAX_240 if category == '240_Minutes_or_Greater' else
+                    MAX_MOVIES_RUNTIME
+                )
+                if len(runtime_stats[category]['film_data']) < max_limit:
+                    runtime_stats[category]['film_data'].append({
+                        'Title': film_title,
+                        'Year': release_year,
+                        'tmdbID': tmdb_id,
+                        'Link': film_url
+                    })
+                    # Update runtime statistics
+                    self.update_runtime_statistics(film_title, release_year, tmdb_id, self.driver, category, film_url)
+
+        # Add to continent stats if applicable
+        try:
+            country_elements = self.driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]')
+            added_to_continent = set()  # Track which continents the film has been added to
+            for country in country_elements:
+                country_name = country.get_attribute('textContent').strip()
+                if country_name:
+                    # Check if the country belongs to any continent
+                    for continent, countries in CONTINENTS_COUNTRIES.items():
+                        if country_name in countries and continent not in added_to_continent:
+                            # Check if we've reached the limit for this continent
+                            max_limit = (
+                                MAX_MOVIES_AFRICA if continent == 'Africa' else
+                                MAX_MOVIES_OCEANIA if continent == 'Oceania' else
+                                MAX_MOVIES_SOUTH_AMERICA if continent == 'South America' else
+                                MAX_MOVIES_CONTINENT
+                            )
+                            if len(continent_stats[continent]['film_data']) < max_limit:
+                                continent_stats[continent]['film_data'].append({
+                                    'Title': film_title,
+                                    'Year': release_year,
+                                    'tmdbID': tmdb_id,
+                                    'Link': film_url
+                                })
+                                # Update continent statistics
+                                self.update_continent_statistics(continent, film_url)
+                                added_to_continent.add(continent)  # Mark the continent as processed
+                            break
+        except Exception:
+            pass
+
+    def update_max_movies_2500_statistics(self, film_title: str, release_year: str, tmdb_id: str, driver, film_url: str = None):
+        """Update statistics for the given movie for MAX_MOVIES_2500 using URL as primary identifier."""
+        if not film_url:
+            return
+            
+        # Find the movie in film_data using URL
         movie_data = next((movie for movie in max_movies_2500_stats['film_data'] 
-                          if movie['Title'] == film_title and movie['Year'] == release_year), None)
+                          if movie.get('Link') == film_url), None)
         
         if not movie_data:
             return
@@ -1961,7 +1708,7 @@ class LetterboxdScraper:
         except Exception:
             pass
 
-        # Actors
+        # Update actors
         try:
             actor_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-cast .text-sluglist a.text-slug.tooltip')
             for actor in actor_elements:
@@ -1971,7 +1718,7 @@ class LetterboxdScraper:
         except Exception:
             pass
 
-        # Decade
+        # Update decade
         try:
             meta_tag = driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
             content = meta_tag.get_attribute('content')
@@ -1982,7 +1729,7 @@ class LetterboxdScraper:
         except Exception:
             pass
 
-        # Genres - Only get main genres, not microgenres
+        # Update genres - Only get main genres, not microgenres
         try:
             genre_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-genres .text-sluglist a.text-slug[href*="/films/genre/"]')
             genres = []
@@ -1995,7 +1742,7 @@ class LetterboxdScraper:
         except Exception:
             pass
 
-        # Studios
+        # Update studios
         try:
             studio_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/studio/"]')
             studios = []
@@ -2008,7 +1755,7 @@ class LetterboxdScraper:
         except Exception:
             pass
 
-        # Languages
+        # Update languages
         try:
             language_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/language/"]')
             languages = []
@@ -2021,7 +1768,7 @@ class LetterboxdScraper:
         except Exception:
             pass
 
-        # Countries
+        # Update countries
         try:
             country_elements = driver.find_elements(By.CSS_SELECTOR, '#tab-details .text-sluglist a.text-slug[href*="/films/country/"]')
             countries = []
@@ -2207,7 +1954,11 @@ class LetterboxdScraper:
         with open(approved_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             for movie in self.processor.unfiltered_approved:
-                writer.writerow(movie + ["2500 Top"])
+                # Ensure we have all fields including TMDB ID
+                if len(movie) >= 3:  # Make sure we have at least title, year, and tmdb_id
+                    writer.writerow(movie + ["2500 Top"])
+                else:
+                    print_to_csv(f"Warning: Movie data incomplete for {movie[0] if movie else 'Unknown'}")
 
         # Save unfiltered denied data (append mode)
         denied_path = os.path.join(BASE_DIR, 'unfiltered_denied.csv')
@@ -2397,7 +2148,10 @@ class LetterboxdScraper:
             writer.writerow([type(error_message).__name__, error_message])  # Write the error type and message
 
     def update_statistics_for_movie(self, film_title: str, release_year: str, tmdb_id: str, driver, film_url: str = None):
-        """Update statistics for the given movie."""
+        """Update statistics for the given movie using URL as primary identifier."""
+        if not film_url:
+            return
+            
         try:
             # Extract directors
             movie_directors = []
@@ -2535,49 +2289,15 @@ class LetterboxdScraper:
                 'Directors': movie_directors,
                 'Genres': movie_genres,
                 'Studios': movie_studios,
-                'Actors': movie_actors
+                'Actors': movie_actors,
+                'Link': film_url
             }
 
-            # Only update whitelist if the movie is already in it
-            if self.processor.is_whitelisted(film_title, release_year):
+            # Only update whitelist if the movie is already in it (using URL)
+            if self.processor.is_whitelisted(None, None, film_url):
                 if self.processor.update_whitelist(film_title, release_year, movie_data, film_url):
                     print_to_csv(f"📝 Successfully updated whitelist data for {film_title}")
-                    # Process through all output channels
-                    self.processor.process_whitelist_info(movie_data)
-                    
-                    # Process runtime category if we have runtime info
-                    if runtime:
-                        categories = []
-                        if runtime < 91:
-                            categories.append('90_Minutes_or_Less')
-                        if runtime < 121:
-                            categories.append('120_Minutes_or_Less')
-                        if runtime > 179:
-                            categories.append('180_Minutes_or_Greater')
-                        if runtime > 239:
-                            categories.append('240_Minutes_or_Greater')
-                        
-                        for category in categories:
-                            if add_to_runtime_stats(category, film_title, release_year, tmdb_id):
-                                self.processor.update_runtime_statistics(film_title, release_year, tmdb_id, driver, category)
-                    
-                    # Process MPAA rating if we have it
-                    if mpaa_rating and mpaa_rating in MPAA_RATINGS:
-                        if add_to_mpaa_stats(mpaa_rating, film_title, release_year, tmdb_id):
-                            self.processor.update_statistics(mpaa_rating)
-                    
-                    # Process continent data if we have countries
-                    for country in movie_countries:
-                        for continent, country_list in CONTINENTS_COUNTRIES.items():
-                            if country in country_list:
-                                if add_to_continent_stats(continent, film_title, release_year, tmdb_id):
-                                    self.processor.update_continent_statistics(continent)
-                                break
-                    
-                    # Process MAX_MOVIES_2500 using centralized function
-                    if add_to_max_movies_2500(film_title, release_year, tmdb_id):
-                        self.processor.update_max_movies_2500_statistics(film_title, release_year, tmdb_id)
-                    
+                    # Don't call process_whitelist_info here since it's already called in process_movie_data
                     self.valid_movies_count += 1
                     print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
                     return movie_data
