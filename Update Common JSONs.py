@@ -88,18 +88,17 @@ def process_page(session, url, max_films, progress_tracker):
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Try both ranked and unranked list classes
-        film_list = soup.find('ul', class_='js-list-entries poster-list -p125 -grid film-list') or \
-                   soup.find('ul', class_='poster-list -p125 -grid film-list')
-        
+        # Updated selector
+        film_list = soup.find('ul', class_='poster-list')
+
         if not film_list:
             print_to_csv("Film list not found on page.")
-            return False, []
         
         temp_data = []
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = []
-            for li in film_list.find_all('li', class_='poster-container'):
+            film_items = film_list.find_all('li', class_='poster-container')
+            for li in film_items:
                 film_poster = li.find('div', class_='film-poster')
                 if not film_poster:
                     print_to_csv("Film poster not found for one item; skipping.")
@@ -143,8 +142,8 @@ def get_list_size(session, base_url):
                 return int(number_str.replace(',', ''))
         
         # Fallback to calculating from page count if meta description fails
-        film_list = soup.find('ul', class_='js-list-entries poster-list -p125 -grid film-list') or \
-                   soup.find('ul', class_='poster-list -p125 -grid film-list')
+        film_list = soup.find('ul', class_='poster-list') or \
+                   soup.find('div', class_='poster-list') # Added div as fallback
         
         films_per_page = len(film_list.find_all('li', class_='poster-container')) if film_list else 0
         pagination = soup.find_all('li', class_='paginate-page')
@@ -188,7 +187,7 @@ def update_github_file(filename, file_content):
     """
     try:
         # Initialize Github with your access token
-        g = Github("YOUR API KEY HERE")
+        g = Github("")
         
         # Get the repository
         repo = g.get_repo("bigbadraj/Letterboxd-List-JSONs")
@@ -221,9 +220,6 @@ def update_github_file(filename, file_content):
 
 def main():
     print_to_csv("Updating All Common Lists")
-    
-    # Automatically set choice to 3
-    choice = "3"
 
     # Define the lists of URLs to process
     lists_to_process = [

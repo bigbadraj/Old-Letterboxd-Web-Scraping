@@ -672,7 +672,7 @@ def add_to_max_movies(film_title: str, release_year: str, tmdb_id: str) -> bool:
     """
     Centralized function to add a movie to max_movies_stats if it's not already present.
     """
-    if any(movie['title'] == film_title and movie['year'] == release_year 
+    if any(movie['Title'] == film_title and movie['Year'] == release_year 
            for movie in max_movies_stats['film_data']):
         return False
         
@@ -680,9 +680,9 @@ def add_to_max_movies(film_title: str, release_year: str, tmdb_id: str) -> bool:
         return False
         
     max_movies_stats['film_data'].append({
-        'title': film_title,
-        'year': release_year,
-        'tmdb_id': tmdb_id
+        'Title': film_title,
+        'Year': release_year,
+        'tmdbId': tmdb_id
     })
     return True
 
@@ -748,8 +748,11 @@ class LetterboxdScraper:
                     # Process the whitelist information directly, regardless of completeness
                     if info and info != {}:  # Only process if there's at least some data
                         self.processor.process_whitelist_info(info)
-                        self.valid_movies_count += 1
-                        print_to_csv(f"✅ Processed whitelist data for {info.get('Title')} ({self.valid_movies_count}/{MAX_MOVIES})")
+                        # Only increment if successfully added to max_movies_stats
+                        if add_to_max_movies(film_title, release_year, info.get('tmdbID')):
+                            self.processor.update_max_movies_statistics(film_title, release_year, info.get('tmdbID'))
+                            self.valid_movies_count += 1
+                            print_to_csv(f"✅ Processed whitelist data for {info.get('Title')} ({self.valid_movies_count}/{MAX_MOVIES})")
                         return True
                     return False
 
@@ -768,8 +771,11 @@ class LetterboxdScraper:
                 ]):
                     # Process the whitelist information directly
                     self.processor.process_whitelist_info(info)
-                    self.valid_movies_count += 1
-                    print_to_csv(f"✅ Processed whitelist data for {info.get('Title')} ({self.valid_movies_count}/{MAX_MOVIES})")
+                    # Only increment if successfully added to max_movies_stats
+                    if add_to_max_movies(film_title, release_year, info.get('tmdbID')):
+                        self.processor.update_max_movies_statistics(film_title, release_year, info.get('tmdbID'))
+                        self.valid_movies_count += 1
+                        print_to_csv(f"✅ Processed whitelist data for {info.get('Title')} ({self.valid_movies_count}/{MAX_MOVIES})")
                     
                     # 2% chance to clear the whitelist data
                     if random.random() < 0.02:
@@ -833,6 +839,8 @@ class LetterboxdScraper:
                                 # Process MAX_MOVIES using centralized function
                                 if add_to_max_movies(film_title, release_year, movie_data.get('tmdbID')):
                                     self.processor.update_max_movies_statistics(film_title, release_year, movie_data.get('tmdbID'))
+                                    self.valid_movies_count += 1
+                                    print_to_csv(f"✅ Successfully processed rescraped data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
                                 
                                 return True
                             else:
@@ -1458,12 +1466,11 @@ class LetterboxdScraper:
                             # Only add to unfiltered_approved if the movie is not in the whitelist
                             if not self.processor.is_whitelisted(film_title, release_year):
                                 self.processor.unfiltered_approved.append([film_title, release_year, tmdb_id, film_url])
-                                self.valid_movies_count += 1  # Increment the count since it's an approved movie
-                                print_to_csv(f"✅ Successfully approved {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
-                                                                                             
-                                # Process MAX_MOVIES using centralized function
+                                # Only increment if successfully added to max_movies_stats
                                 if add_to_max_movies(film_title, release_year, tmdb_id):
                                     self.processor.update_max_movies_statistics(film_title, release_year, tmdb_id)
+                                    self.valid_movies_count += 1
+                                    print_to_csv(f"✅ Successfully approved {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
 
                         # Update statistics
                         self.update_statistics_for_movie(film_title, release_year, tmdb_id, self.driver, film_url)
@@ -1788,9 +1795,8 @@ class LetterboxdScraper:
                     # Process MAX_MOVIES using centralized function
                     if add_to_max_movies(film_title, release_year, tmdb_id):
                         self.processor.update_max_movies_statistics(film_title, release_year, tmdb_id)
-                    
-                    self.valid_movies_count += 1
-                    print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
+                        self.valid_movies_count += 1
+                        print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
                     return movie_data
 
         except Exception as e:

@@ -22,8 +22,8 @@ def log_and_print(message: str):
 
 def update_letterboxd_lists():
     # User credentials and file paths
-    username = "USERNAME"
-    password = "PASSWORD"
+    username = ""
+    password = ""
     output_csv_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs\update_results.csv"
     base_folder_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs"
 
@@ -226,7 +226,7 @@ def update_letterboxd_lists():
                     log_and_print(f"❌ Failed to find any matching text files for {list_name} after {max_attempts} attempts.")
                     has_error = True  
 
-                time.sleep(7 )  
+                time.sleep(15)  
 
                 # Step 4: Click the "Hide Successful Matches" button
                 try:

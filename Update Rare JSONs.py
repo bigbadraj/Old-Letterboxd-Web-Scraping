@@ -89,8 +89,7 @@ def process_page(session, url, max_films, progress_tracker):
         soup = BeautifulSoup(response.content, 'html.parser')
         
         # Try both ranked and unranked list classes
-        film_list = soup.find('ul', class_='js-list-entries poster-list -p125 -grid film-list') or \
-                   soup.find('ul', class_='poster-list -p125 -grid film-list')
+        film_list = soup.find('ul', class_='poster-list')
         
         if not film_list:
             print_to_csv("Film list not found on page.")
@@ -143,8 +142,7 @@ def get_list_size(session, base_url):
                 return int(number_str.replace(',', ''))
         
         # Fallback to calculating from page count if meta description fails
-        film_list = soup.find('ul', class_='js-list-entries poster-list -p125 -grid film-list') or \
-                   soup.find('ul', class_='poster-list -p125 -grid film-list')
+        film_list = soup.find('ul', class_='poster-list')
         
         films_per_page = len(film_list.find_all('li', class_='poster-container')) if film_list else 0
         pagination = soup.find_all('li', class_='paginate-page')
@@ -188,7 +186,7 @@ def update_github_file(filename, file_content):
     """
     try:
         # Initialize Github with your access token
-        g = Github("YOUR API KEY HERE")
+        g = Github("")
         
         # Get the repository
         repo = g.get_repo("bigbadraj/Letterboxd-List-JSONs")

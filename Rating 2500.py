@@ -50,7 +50,7 @@ CHUNK_SIZE = 1900
 MAX_180 = 150
 MAX_240 = 25
 MAX_MOVIES_G = 100
-MAX_MOVIES_NC17 = 20
+MAX_MOVIES_NC17 = 15
 MAX_MOVIES_AFRICA = 100
 MAX_MOVIES_OCEANIA = 75
 MAX_MOVIES_SOUTH_AMERICA = 250
@@ -111,12 +111,12 @@ runtime_stats = {
 
 # Define continents and their associated countries in a case-insensitive manner
 CONTINENTS_COUNTRIES = {
-    'Africa': ['Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon', 'Central African Republic', 'Chad', 'Comoros', 'Congo, Democratic Republic of the', 'Congo, Republic of the', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Eswatini', 'Ethiopia', 'Gabon', 'Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe'],
-    'Asia': ['State of Palestine', 'Hong Kong', 'Afghanistan', 'Armenia', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Bhutan', 'Brunei', 'Cambodia', 'China', 'Cyprus', 'Georgia', 'India', 'Indonesia', 'Iran', 'Iraq', 'Israel', 'Japan', 'Jordan', 'Kazakhstan', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Lebanon', 'Malaysia', 'Maldives', 'Mongolia', 'Myanmar', 'Nepal', 'North Korea', 'Oman', 'Pakistan', 'Palestine', 'Philippines', 'Qatar', 'Russia', 'Saudi Arabia', 'Singapore', 'South Korea', 'Sri Lanka', 'Syrian Arab Republic', 'Taiwan', 'Tajikistan', 'Thailand', 'Timor-Leste', 'Turkey', 'Turkmenistan', 'United Arab Emirates', 'Uzbekistan', 'Vietnam', 'Yemen'],
+    'Africa': ['Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon', 'Central African Republic', 'Chad', 'Comoros', 'Congo, Democratic Republic of the', 'Congo, Republic of the', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Eswatini', 'Ethiopia', 'Gabon', 'Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe', 'Congo'],
+    'Asia': ['State of Palestine', 'Hong Kong', 'Afghanistan', 'Armenia', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Bhutan', 'Brunei', 'Cambodia', 'China', 'Cyprus', 'Georgia', 'India', 'Indonesia', 'Iran', 'Iraq', 'Israel', 'Japan', 'Jordan', 'Kazakhstan', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Lebanon', 'Malaysia', 'Maldives', 'Mongolia', 'Myanmar', 'Nepal', 'North Korea', 'Oman', 'Pakistan', 'Palestine', 'Philippines', 'Qatar', 'Russia', 'Saudi Arabia', 'Singapore', 'South Korea', 'Sri Lanka', 'Syrian Arab Republic', 'Taiwan', 'Tajikistan', 'Thailand', 'Timor-Leste', 'Turkey', 'Turkmenistan', 'United Arab Emirates', 'Uzbekistan', 'Vietnam', 'Yemen', 'Syria'],
     'Europe': ['East Germany', 'North Macedonia', 'Yugoslavia', 'Serbia and Montenegro', 'Czechoslovakia', 'Czechia', 'USSR', 'Albania', 'Latvia', 'Andorra', 'Liechtenstein', 'Armenia', 'Lithuania', 'Austria', 'Luxembourg', 'Azerbaijan', 'Malta', 'Belarus', 'Moldova', 'Belgium', 'Monaco', 'Bosnia and Herzegovina', 'Montenegro', 'Bulgaria', 'Netherlands', 'Croatia', 'Norway', 'Cyprus', 'Poland', 'Czech Republic', 'Portugal', 'Denmark', 'Romania', 'Estonia', 'Russia', 'Finland', 'San Marino', 'Former Yugoslav Republic of Macedonia', 'Serbia', 'France', 'Slovakia', 'Georgia', 'Slovenia', 'Germany', 'Spain', 'Greece', 'Sweden', 'Hungary', 'Switzerland', 'Iceland', 'Ireland', 'Turkey', 'Italy', 'Ukraine', 'Kosovo', 'UK'],
-    'North America': ['Cuba', 'The Bahamas', 'Bermuda', 'Canada', 'The Caribbean', 'Clipperton Island', 'Greenland', 'Mexico', 'Saint Pierre and Miquelon', 'Turks and Caicos Islands', 'USA', 'Belize', 'Costa Rica', 'El Salvador', 'Guatemala', 'Honduras', 'Nicaragua', 'Panama'],
-    'Oceania': ['Australia', 'Fiji', 'Kiribati', 'Marshall Islands', 'Micronesia', 'Nauru', 'New Zealand', 'Palau', 'Papua New Guinea', 'Samoa', 'Solomon Islands', 'Tonga', 'Tuvalu', 'Vanuatu'],
-    'South America': ['Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Ecuador', 'Guyana', 'Paraguay', 'Peru', 'Suriname', 'Uruguay', 'Bolivarian Republic of Venezuela', 'The Falkland Islands', 'South Georgia and the South Sandwich Islands', 'French Guiana'],
+    'North America': ['Cuba', 'The Bahamas', 'Bermuda', 'Canada', 'The Caribbean', 'Clipperton Island', 'Greenland', 'Mexico', 'Saint Pierre and Miquelon', 'Turks and Caicos Islands', 'USA', 'Belize', 'Costa Rica', 'El Salvador', 'Guatemala', 'Honduras', 'Nicaragua', 'Panama', 'Dominican Republic', 'Haiti', 'Jamaica', 'Martinique', 'Netherlands Antilles', 'Puerto Rico'],
+    'Oceania': ['Australia', 'Fiji', 'Kiribati', 'Marshall Islands', 'Micronesia', 'Nauru', 'New Zealand', 'Palau', 'Papua New Guinea', 'Samoa', 'Solomon Islands', 'Tonga', 'Tuvalu', 'Vanuatu', 'French Polynesia'],
+    'South America': ['Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Ecuador', 'Guyana', 'Paraguay', 'Peru', 'Suriname', 'Uruguay', 'Bolivarian Republic of Venezuela', 'The Falkland Islands', 'South Georgia and the South Sandwich Islands', 'French Guiana', 'Venezuela'],
 }
 
 # Initialize continent stats with additional counts
@@ -846,6 +846,7 @@ class MovieProcessor:
                     # Save the updated DataFrame
                     self.zero_reviews.to_excel(ZERO_REVIEWS_PATH, index=False)
                     print_to_csv(f"🗑️  Removed {film_title} from zero reviews list")
+                    self.rejected_movies_count += 1
                 return True
             return False
                 
@@ -1500,18 +1501,21 @@ class LetterboxdScraper:
                             print_to_csv(f"📊 {film_title} has no reviews. Adding to zero reviews list.")
                             self.processor.add_to_zero_reviews(film_title, release_year, film_url)
                             self.processor.rejected_data.append([film_title, release_year, None, 'Zero reviews'])
+                            self.rejected_movies_count += 1
                             break  # Break out of retry loop and continue to next movie
                         
                         # Check 1: Rating count minimum
                         if rating_count < MIN_RATING_COUNT:
                             print_to_csv(f"❌ {film_title} was not added due to insufficient ratings: {rating_count} ratings.")
                             self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient ratings (< 1000)'])
+                            self.rejected_movies_count += 1
                             break  # Break out of retry loop since this is a permanent rejection
                         
                         # Check 2: Blacklist
                         if self.processor.is_blacklisted(None, None, film_url, self.driver):
                             print_to_csv(f"❌ {film_title} was not added due to being blacklisted.")
                             self.processor.rejected_data.append([film_title, release_year, None, 'Blacklisted'])
+                            self.rejected_movies_count += 1
                             break  # Break out of retry loop since this is a permanent rejection
                         
                         # Check 3: Runtime
@@ -1523,6 +1527,12 @@ class LetterboxdScraper:
                             match = re.search(r'(\d+)\s*min(?:s)?', runtime_text)
                             if match:
                                 runtime = int(match.group(1))
+                                if runtime < MIN_RUNTIME:
+                                    print_to_csv(f"❌ {film_title} was not added due to insufficient runtime: {runtime} minutes.")
+                                    self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient runtime (< 40 minutes)'])
+                                    self.processor.add_to_blacklist(film_title, release_year, 'Insufficient runtime (< 40 minutes)', film_url)
+                                    self.rejected_movies_count += 1
+                                    break  # Break out of retry loop since this is a permanent rejection
                             else:
                                 runtime = None
                         except Exception as e:
@@ -1530,8 +1540,10 @@ class LetterboxdScraper:
                             print_to_csv(f"Error extracting runtime for {film_title}: {str(e)}")
 
                         if runtime is None:
+                            runtime_retries = 5
                             print_to_csv(f"⚠️ {film_title} skipped due to missing runtime")
-                            if retry < movie_retries - 1:
+                            self.rejected_movies_count += 1  # Increase rejected movie count
+                            if retry < runtime_retries - 1:
                                 print_to_csv(f"Retrying... (Attempt {retry + 1}/{movie_retries})")
                                 time.sleep(2)
                                 continue
@@ -1606,7 +1618,7 @@ class LetterboxdScraper:
             runtime = None
             try:
                 runtime_text = self.driver.find_element(By.CSS_SELECTOR, 'p.text-link.text-footer').text
-                match = re.search(r'(\d+)\s*mins', runtime_text)
+                match = re.search(r'(\d+)\s*min(?:s)?', runtime_text)
                 if match:
                     runtime = int(match.group(1))
             except Exception:
