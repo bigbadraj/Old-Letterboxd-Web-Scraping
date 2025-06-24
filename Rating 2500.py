@@ -770,20 +770,18 @@ class MovieProcessor:
         # Check if URL exists in blacklist lookup
         return film_url in self.blacklist_lookup
 
-    def save_refreshed_data(self, film_title: str, release_year: str, tmdb_id: str, film_url: str = None) -> None:
-        """Save information about movies that had their data reconstructed, using URL as primary identifier."""
+    def save_refreshed_data(self, film_title: str, release_year: str, tmdb_id: str, film_url: str = None, reason: str = "") -> None:
+        """Save information about movies that had their data reconstructed, using URL as primary identifier, and include the reason."""
         if not film_url:
             return
-            
         try:
             # Check if file exists to determine if we need to write headers
             file_exists = os.path.exists(BASE_DIR + '/Refreshed_Data.csv')
-            
             with open(BASE_DIR + '/Refreshed_Data.csv', mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if not file_exists:
-                    writer.writerow(['Title', 'Year', 'tmdbID', 'Link'])
-                writer.writerow([film_title, release_year, tmdb_id, film_url])
+                    writer.writerow(['Title', 'Year', 'tmdbID', 'Link', 'Reason'])
+                writer.writerow([film_title, release_year, tmdb_id, film_url, reason])
         except Exception as e:
             print_to_csv(f"Error saving refreshed data: {str(e)}")
 
@@ -1139,22 +1137,20 @@ class LetterboxdScraper:
                     print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
                     return True
                 # If info is empty or incomplete, collect fresh data
-                if not info or info == {} or not all([
-                    info.get('Title'),
-                    info.get('Year'),
-                    info.get('Runtime'),
-                    info.get('RatingCount'),
-                    info.get('Languages'),
-                    info.get('Countries'),
-                    info.get('Directors'),
-                    info.get('Genres'),
-                    info.get('Studios'),
-                    info.get('Actors')
-                ]):
+                required_fields = [
+                    'Title', 'Year', 'Runtime', 'RatingCount',
+                    'Languages', 'Countries', 'Directors', 'Genres', 'Studios', 'Actors'
+                ]
+                missing_fields = [field for field in required_fields if not info.get(field)]
+                if not info or info == {} or missing_fields:
+                    # Only log to Refreshed_Data if info is partially filled (not empty, not just {}), and 4 or fewer fields are missing
+                    if missing_fields and info and info != {} and len(missing_fields) <= 4:
+                        reason = f"Missing or blank fields: {', '.join(missing_fields)}"
+                        self.processor.save_refreshed_data(film_title, release_year, tmdb_id, film_url, reason)
                     try:
                         self.driver.get(film_url)
                         WebDriverWait(self.driver, 10).until(
-                            EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
+                            EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property=\"og:title\"]'))
                         )
                         time.sleep(random.uniform(1.0, 1.5))
                         
@@ -1299,7 +1295,7 @@ class LetterboxdScraper:
                         
                         # Update whitelist with fresh data
                         if self.processor.update_whitelist(film_title, release_year, info, film_url):
-                            print_to_csv(f"📝 updated whitelist data for {film_title}")
+                            print_to_csv(f"📝 Updated whitelist data for {film_title}")
                     except Exception as e:
                         print_to_csv(f"Error collecting fresh data for {film_title}: {str(e)}")
                         self.processor.rejected_data.append([film_title, release_year, None, f'Error collecting data: {str(e)}'])
