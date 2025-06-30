@@ -789,7 +789,7 @@ class LetterboxdScraper:
                         WebDriverWait(self.driver, 10).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property=\"og:title\"]'))
                         )
-                        time.sleep(random.uniform(1.0, 1.5))
+                        #time.sleep(random.uniform(1.0, 1.5))
                         
                         # Extract basic info
                         meta_tag = self.driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
@@ -986,7 +986,7 @@ class LetterboxdScraper:
                     print_to_csv(f"Retry {retry + 1}/{page_retries} loading page {self.page_number}: {str(e)}")
                     time.sleep(2)
             
-            time.sleep(random.uniform(1.0, 1.5))
+            #time.sleep(random.uniform(1.0, 1.5))
                     
             # Find all film containers with retry mechanism
             film_containers = []
@@ -1105,7 +1105,7 @@ class LetterboxdScraper:
                         WebDriverWait(self.driver, 10).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
                         )
-                        time.sleep(random.uniform(1.0, 1.5))
+                        #time.sleep(random.uniform(1.0, 1.5))
                         
                         # Extract basic info needed for checks
                         meta_tag = self.driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
