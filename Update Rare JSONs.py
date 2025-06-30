@@ -12,6 +12,30 @@ from github import Github
 import os
 from datetime import datetime
 import csv
+import platform
+
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        jsons_dir = os.path.join(base_dir, 'JSONs')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        jsons_dir = os.path.join(base_dir, 'JSONs')
+    
+    return {
+        'base_dir': base_dir,
+        'jsons_dir': jsons_dir
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+jsons_dir = paths['jsons_dir']
 
 # Define a custom print function
 def print_to_csv(message: str):
@@ -277,7 +301,7 @@ def main():
         print_to_csv(f"\nProcessing list {i}/{len(lists_to_handle)}")
         base_url = list_info['url']
         list_name = base_url.rstrip('/').split('/')[-1]
-        output_json = fr'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\JSONs\film_titles_{list_name}.json'
+        output_json = os.path.join(jsons_dir, f"film_titles_{list_name}.json")
         print_to_csv(f"URL: {base_url}")
         process_single_list(base_url, output_json, progress_tracker=progress_tracker, update_github=True)
         print_to_csv(f"Completed list {i}/{len(lists_to_handle)}")

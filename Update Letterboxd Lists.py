@@ -1,22 +1,60 @@
 import time
-import pandas as pd
-import logging
-import os
-import pyautogui
+import random
 from selenium import webdriver
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
-import traceback
+import pandas as pd
+import re
+import os
+import platform
 import glob
+import pyautogui
+from tqdm import tqdm
 import csv
+from datetime import datetime
+import logging
+import traceback
 
 # Configure logging to only show the message after - INFO -
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    
+    return {
+        'base_dir': base_dir,
+        'output_dir': output_dir
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+output_dir = paths['output_dir']
+base_dir = paths['base_dir']
+
+# Define a custom print function
 def log_and_print(message: str):
-    """Logs a message and appends it to the output CSV file."""
-    logging.info(message)  # Log the message
-    with open('Outputs/All_Outputs.csv', mode='a', newline='', encoding='utf-8') as file:
+    """Prints a message to the terminal and appends it to All_Outputs.csv."""
+    print(message)  # Print to terminal
+    
+    # Ensure output directory exists
+    os.makedirs(output_dir, exist_ok=True)
+    
+    with open(os.path.join(output_dir, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([message])  # Write the message as a new row
 
@@ -24,8 +62,8 @@ def update_letterboxd_lists():
     # User credentials and file paths
     username = ""
     password = ""
-    output_csv_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs\update_results.csv"
-    base_folder_path = r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs"
+    output_csv_path = os.path.join(output_dir, 'update_results.csv')
+    base_folder_path = output_dir
 
     # Dictionary of lists to update
     lists_to_update_easy = {
@@ -180,7 +218,7 @@ def update_letterboxd_lists():
                 time.sleep(1)
 
                 # Type the path to the Outputs folder
-                pyautogui.typewrite(r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs", interval=0.1)
+                pyautogui.typewrite(output_dir, interval=0.1)
                 pyautogui.press('enter')  # Navigate to the Outputs folder
                 time.sleep(1) 
 
@@ -321,7 +359,7 @@ def update_letterboxd_lists():
                 time.sleep(1) 
 
                 # Type the path to the Outputs folder
-                pyautogui.typewrite(r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs", interval=0.1)
+                pyautogui.typewrite(output_dir, interval=0.1)
                 pyautogui.press('enter')  
                 time.sleep(1)  
 
@@ -427,7 +465,7 @@ def update_letterboxd_lists():
                 time.sleep(1) 
 
                 # Type the path to the Outputs folder
-                pyautogui.typewrite(r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs", interval=0.1)
+                pyautogui.typewrite(output_dir, interval=0.1)
                 pyautogui.press('enter')  
                 time.sleep(1)  
 
@@ -528,7 +566,7 @@ def update_letterboxd_lists():
                 time.sleep(1)
 
                 # Type the path to the Outputs folder
-                pyautogui.typewrite(r"C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs", interval=0.1)
+                pyautogui.typewrite(output_dir, interval=0.1)
                 pyautogui.press('enter')  
                 time.sleep(1) 
 
