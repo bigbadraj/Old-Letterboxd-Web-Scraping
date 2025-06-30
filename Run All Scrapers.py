@@ -4,9 +4,23 @@ from datetime import datetime
 import sys
 import io
 import os
+import platform
 
 # Set console output encoding to UTF-8
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+# Detect operating system and set appropriate Python command
+def get_python_command():
+    """Return the appropriate Python command for the current OS."""
+    system = platform.system()
+    
+    if system == "Darwin":  # macOS
+        return "python3"
+    else:  # Windows, Linux, etc.
+        return "python"
+
+# Get the appropriate Python command
+PYTHON_CMD = get_python_command()
 
 def format_time(seconds):
     """Format time in a human-readable format"""
@@ -32,7 +46,7 @@ def run_script(script_name, description, *args):
         
         # Add encoding parameters to handle special characters
         process = subprocess.Popen(
-            ['python', '-u', script_name] + list(args),
+            [PYTHON_CMD, '-u', script_name] + list(args),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True,
