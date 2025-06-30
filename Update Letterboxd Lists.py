@@ -18,6 +18,7 @@ import csv
 from datetime import datetime
 import logging
 import traceback
+from credentials_loader import load_credentials
 
 # Configure logging to only show the message after - INFO -
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -59,9 +60,12 @@ def log_and_print(message: str):
         writer.writerow([message])  # Write the message as a new row
 
 def update_letterboxd_lists():
+    # Load credentials
+    credentials = load_credentials()
+    
     # User credentials and file paths
-    username = ""
-    password = ""
+    username = credentials['LETTERBOXD_USERNAME']
+    password = credentials['LETTERBOXD_PASSWORD']
     output_csv_path = os.path.join(output_dir, 'update_results.csv')
     base_folder_path = output_dir
 

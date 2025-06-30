@@ -13,6 +13,7 @@ import os
 from datetime import datetime
 import csv
 import platform
+from credentials_loader import load_credentials
 
 # Detect operating system and set appropriate paths
 def get_os_specific_paths():
@@ -209,8 +210,11 @@ def update_github_file(filename, file_content):
     Updates or creates a file in the GitHub repository.
     """
     try:
+        # Load credentials
+        credentials = load_credentials()
+        
         # Initialize Github with your access token
-        g = Github("")
+        g = Github(credentials['GITHUB_API_KEY'])
         
         # Get the repository
         repo = g.get_repo("bigbadraj/Letterboxd-List-JSONs")
@@ -354,16 +358,12 @@ def process_single_list(base_url, output_json, progress_tracker, max_films=None,
     if any('ListNumber' in item for item in final_data):
         final_data = sorted(final_data, key=lambda x: x.get('ListNumber', float('inf')))
 
-    # Save to JSON file
-    with open(output_json, 'w', encoding='utf-8') as f:
-        json_content = json.dumps(final_data, ensure_ascii=False, indent=2)
-        f.write(json_content)
-        
-    # Update GitHub repository
+    # Save to GitHub repository only (do not write to local file)
+    json_content = json.dumps(final_data, ensure_ascii=False, indent=2)
     if update_github:
         update_github_file(output_json, json_content)
     
-    print_to_csv(f"\nSaved {len(all_data)} films to {output_json}")
+    print_to_csv(f"\nSaved {len(all_data)} films to GitHub: {output_json}")
     print_to_csv(f"Total time elapsed: {format_time(total_time)}")
     print_to_csv(f"Processing speed: {current_movies_per_second:.2f} movies/second")
 

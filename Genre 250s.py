@@ -23,6 +23,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import json
 from selenium.common.exceptions import NoSuchElementException
+from credentials_loader import load_credentials
 
 # Detect operating system and set appropriate paths
 def get_os_specific_paths():
@@ -77,8 +78,9 @@ WHITELIST_PATH = os.path.join(LIST_DIR, 'whitelist.xlsx')
 INCOMPLETE_STATS_WHITELIST_PATH = os.path.join(LIST_DIR, 'Incomplete_Stats_Whitelist.xlsx')
 ZERO_REVIEWS_PATH = os.path.join(LIST_DIR, 'Zero_Reviews.xlsx')  # Add new path
 
-# TMDb API key
-TMDB_API_KEY = ''
+# Load credentials
+credentials = load_credentials()
+TMDB_API_KEY = credentials['TMDB_API_KEY']
 
 # Filtering criteria
 FILTER_KEYWORDS = {
@@ -531,8 +533,8 @@ class MovieProcessor:
             return
         try:
             # Check if file exists to determine if we need to write headers
-            file_exists = os.path.exists(BASE_DIR + '/Refreshed_Data.csv')
-            with open(BASE_DIR + '/Refreshed_Data.csv', mode='a', newline='', encoding='utf-8') as file:
+            file_exists = os.path.exists(os.path.join(BASE_DIR, 'Refreshed_Data.csv'))
+            with open(os.path.join(BASE_DIR, 'Refreshed_Data.csv'), mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if not file_exists:
                     writer.writerow(['Title', 'Year', 'tmdbID', 'Link', 'Reason'])
@@ -599,7 +601,6 @@ class MovieProcessor:
                     # Save the updated DataFrame
                     self.zero_reviews.to_excel(ZERO_REVIEWS_PATH, index=False)
                     print_to_csv(f"🗑️  Removed {film_title} from zero reviews list")
-                    self.rejected_movies_count += 1
                 return True
             return False
                 
