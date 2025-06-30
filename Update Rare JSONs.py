@@ -24,25 +24,29 @@ def get_os_specific_paths():
         # Windows paths
         base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
         jsons_dir = os.path.join(base_dir, 'JSONs')
+        output_dir = os.path.join(base_dir, 'Outputs')
     elif system == "Darwin":  # macOS
         # macOS paths
         base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
         jsons_dir = os.path.join(base_dir, 'JSONs')
+        output_dir = os.path.join(base_dir, 'Outputs')
     
     return {
         'base_dir': base_dir,
-        'jsons_dir': jsons_dir
+        'jsons_dir': jsons_dir,
+        'output_dir': output_dir
     }
 
 # Get OS-specific paths
 paths = get_os_specific_paths()
 jsons_dir = paths['jsons_dir']
+output_dir = paths['output_dir']
 
 # Define a custom print function
 def print_to_csv(message: str):
     """Prints a message to the terminal and appends it to All_Outputs.csv."""
     print(message)  # Print to terminal
-    with open('Outputs/All_Outputs.csv', mode='a', newline='', encoding='utf-8') as file:
+    with open(os.path.join(output_dir, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([message])  # Write the message as a new row
 

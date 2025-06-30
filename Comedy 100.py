@@ -43,7 +43,7 @@ output_dir = paths['output_dir']
 def print_to_csv(message: str):
     """Prints a message to the terminal and appends it to All_Outputs.csv."""
     print(message)  # Print to terminal
-    with open('Outputs/All_Outputs.csv', mode='a', newline='', encoding='utf-8') as file:
+    with open(os.path.join(output_dir, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([message])  # Write the message as a new row
 

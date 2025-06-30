@@ -4,14 +4,6 @@ import csv
 import os
 import platform
 
-# Define a custom print function
-def print_to_csv(message: str):
-    """Prints a message to the terminal and appends it to All_Outputs.csv."""
-    print(message)  # Print to terminal
-    with open('Outputs/All_Outputs.csv', mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerow([message])  # Write the message as a new row
-
 # Detect operating system and set appropriate paths
 def get_os_specific_paths():
     """Return OS-specific file paths."""
@@ -34,6 +26,14 @@ def get_os_specific_paths():
 # Get OS-specific paths
 paths = get_os_specific_paths()
 output_dir = paths['output_dir']
+
+# Define a custom print function
+def print_to_csv(message: str):
+    """Prints a message to the terminal and appends it to All_Outputs.csv."""
+    print(message)  # Print to terminal
+    with open(os.path.join(output_dir, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow([message])  # Write the message as a new row
 
 def scrape_movies(urls, output_filename):
     os.makedirs(output_dir, exist_ok=True)

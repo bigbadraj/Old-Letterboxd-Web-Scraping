@@ -46,18 +46,14 @@ def get_os_specific_paths():
 
 # Get OS-specific paths
 paths = get_os_specific_paths()
-BASE_DIR = paths['output_dir']
+output_dir = paths['output_dir']
 LIST_DIR = paths['base_dir']
 
 # Define a custom print function
 def print_to_csv(message: str):
     """Prints a message to the terminal and appends it to All_Outputs.csv."""
     print(message)  # Print to terminal
-    
-    # Ensure output directory exists
-    os.makedirs(os.path.join(BASE_DIR, 'Outputs'), exist_ok=True)
-    
-    with open(os.path.join(BASE_DIR, 'Outputs', 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
+    with open(os.path.join(output_dir, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([message])  # Write the message as a new row
 
@@ -805,8 +801,8 @@ class MovieProcessor:
             return
         try:
             # Check if file exists to determine if we need to write headers
-            file_exists = os.path.exists(os.path.join(BASE_DIR, 'Refreshed_Data.csv'))
-            with open(os.path.join(BASE_DIR, 'Refreshed_Data.csv'), mode='a', newline='', encoding='utf-8') as file:
+            file_exists = os.path.exists(os.path.join(output_dir, 'Refreshed_Data.csv'))
+            with open(os.path.join(output_dir, 'Refreshed_Data.csv'), mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if not file_exists:
                     writer.writerow(['Title', 'Year', 'tmdbID', 'Link', 'Reason'])
@@ -891,7 +887,7 @@ def setup_webdriver() -> webdriver.Firefox:
     # Add these preferences to prevent random downloads
     options.set_preference("browser.download.folderList", 2)  # Use custom download location
     options.set_preference("browser.download.manager.showWhenStarting", False)  # Don't show download manager
-    options.set_preference("browser.download.dir", os.path.join(BASE_DIR, "downloads"))  # Set download directory
+    options.set_preference("browser.download.dir", os.path.join(output_dir, "downloads"))  # Set download directory
     options.set_preference("browser.helperApps.neverAsk.saveToDisk", "text/html,text/plain")  # Don't ask to save HTML files
     options.set_preference("browser.helperApps.alwaysAsk.force", False)  # Don't force asking
     options.set_preference("browser.download.manager.alertOnEXEOpen", False)  # Don't alert on exe downloads
@@ -1493,56 +1489,51 @@ class LetterboxdScraper:
                 for retry in range(movie_retries):
                     try:
                         self.driver.get(film_url)
+                        # Only wait for the page source to be available, not for any specific element
+                        page_source = self.driver.page_source
+                        # Extract rating count as fast as possible
+                        match = re.search(r'ratingCount":(\d+)', page_source)
+                        rating_count = int(match.group(1)) if match else 0
+
+                        if rating_count == 0:
+                            # Extract title/year if not already known
+                            # Try to get year from meta tag if not in film_data_list
+                            if not release_year:
+                                try:
+                                    meta_tag = self.driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
+                                    if meta_tag:
+                                        release_year_content = meta_tag.get_attribute('content')
+                                        release_year = release_year_content.split('(')[-1].strip(')')
+                                except Exception:
+                                    release_year = None
+                            self.processor.add_to_zero_reviews(film_title, release_year, film_url)
+                            self.processor.rejected_data.append([film_title, release_year, None, 'Zero reviews'])
+                            self.rejected_movies_count += 1
+                            break  # Skip to next movie
+                        elif rating_count < MIN_RATING_COUNT:
+                            # Not enough reviews, skip immediately
+                            self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient ratings (< 1000)'])
+                            self.rejected_movies_count += 1
+                            break  # Skip to next movie
+                        # If here, rating_count >= 1000, proceed as before
                         WebDriverWait(self.driver, 10).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, 'meta[property="og:title"]'))
                         )
-                        #time.sleep(random.uniform(1.0, 1.5))
-                        
-                        # Extract basic info needed for checks
                         meta_tag = self.driver.find_element(By.CSS_SELECTOR, 'meta[property="og:title"]')
                         release_year = None
                         if meta_tag:
                             release_year_content = meta_tag.get_attribute('content')
                             release_year = release_year_content.split('(')[-1].strip(')')
-                        
-                        # Extract rating count
-                        rating_count = 0
+                        # Extract TMDB ID from body tag
+                        tmdb_id = None
                         try:
-                            page_source = self.driver.page_source
-                            match = re.search(r'ratingCount":(\d+)', page_source)
-                            if match:
-                                rating_count = int(match.group(1))
-                            
-                            # Extract TMDB ID from body tag
                             tmdb_match = re.search(r'data-tmdb-id="(\d+)"', page_source)
                             if tmdb_match:
                                 tmdb_id = tmdb_match.group(1)
                         except Exception as e:
-                            print_to_csv(f"Error extracting rating count or TMDB ID: {str(e)}")
-                        
-                        # Check if movie has zero reviews
-                        if rating_count == 0:
-                            print_to_csv(f"📊 {film_title} has no reviews. Adding to zero reviews list.")
-                            self.processor.add_to_zero_reviews(film_title, release_year, film_url)
-                            self.processor.rejected_data.append([film_title, release_year, None, 'Zero reviews'])
-                            self.rejected_movies_count += 1
-                            break  # Break out of retry loop and continue to next movie
-                        
-                        # Check 1: Rating count minimum
-                        if rating_count < MIN_RATING_COUNT:
-                            print_to_csv(f"❌ {film_title} was not added due to insufficient ratings: {rating_count} ratings.")
-                            self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient ratings (< 1000)'])
-                            self.rejected_movies_count += 1
-                            break  # Break out of retry loop since this is a permanent rejection
-                        
-                        # Check 2: Blacklist
-                        if self.processor.is_blacklisted(None, None, film_url, self.driver):
-                            print_to_csv(f"❌ {film_title} was not added due to being blacklisted.")
-                            self.processor.rejected_data.append([film_title, release_year, None, 'Blacklisted'])
-                            self.rejected_movies_count += 1
-                            break  # Break out of retry loop since this is a permanent rejection
-                        
-                        # Check 3: Runtime
+                            print_to_csv(f"Error extracting TMDB ID: {str(e)}")
+                        # Extract runtime
+                        runtime = None
                         try:
                             runtime_element = WebDriverWait(self.driver, 10).until(
                                 EC.presence_of_element_located((By.CSS_SELECTOR, 'p.text-link.text-footer'))
@@ -1556,13 +1547,10 @@ class LetterboxdScraper:
                                     self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient runtime (< 40 minutes)'])
                                     self.processor.add_to_blacklist(film_title, release_year, 'Insufficient runtime (< 40 minutes)', film_url)
                                     self.rejected_movies_count += 1
-                                    break  # Break out of retry loop since this is a permanent rejection
-                            else:
-                                runtime = None
+                                    break  # Skip to next movie
                         except Exception as e:
                             runtime = None
                             print_to_csv(f"Error extracting runtime for {film_title}: {str(e)}")
-
                         if runtime is None:
                             runtime_retries = 5
                             print_to_csv(f"⚠️ {film_title} skipped due to missing runtime")
@@ -1571,13 +1559,12 @@ class LetterboxdScraper:
                                 print_to_csv(f"Retrying... (Attempt {retry + 1}/{movie_retries})")
                                 time.sleep(2)
                                 continue
-                            
                         # If we get here, the movie passed all checks
                         # Create movie data dictionary
                         movie_data = {
                             'Title': film_title,
                             'Year': release_year,
-                            'tmdbID': None,  # We don't need TMDB ID for processing
+                            'tmdbID': tmdb_id,
                             'MPAA': None,  # We don't need MPAA for processing
                             'Runtime': runtime,
                             'RatingCount': rating_count,
@@ -1590,11 +1577,9 @@ class LetterboxdScraper:
                             'Actors': [],
                             'Link': film_url
                         }
-                        
                         # Process the movie data
                         self.process_movie_data(movie_data, film_title, film_url)
                         break  # Break out of retry loop since we successfully processed the movie
-                        
                     except Exception as e:
                         if retry == movie_retries - 1:
                             print_to_csv(f"❌ Failed to process movie after {movie_retries} attempts: {str(e)}")
@@ -1924,7 +1909,7 @@ class LetterboxdScraper:
             end_idx = min((i + 1) * CHUNK_SIZE, len(max_movies_2500_stats['film_data']))
             chunk_df = pd.DataFrame(max_movies_2500_stats['film_data'][start_idx:end_idx])
             chunk_df = chunk_df[['Title', 'Year', 'tmdbID']]
-            output_path = os.path.join(BASE_DIR, f'rating_filtered_movie_titles{i+1}.csv')
+            output_path = os.path.join(output_dir, f'rating_filtered_movie_titles{i+1}.csv')
             chunk_df.to_csv(output_path, index=False, encoding='utf-8')
 
         def get_ordinal(n):
@@ -1938,7 +1923,7 @@ class LetterboxdScraper:
         formatted_date = current_date.strftime('%B ') + get_ordinal(current_date.day) + f", {current_date.year}"
 
         # Save statistics for this rating
-        stats_path = os.path.join(BASE_DIR, f'rating_filtered_titles.txt')
+        stats_path = os.path.join(output_dir, f'rating_filtered_titles.txt')
         
         with open(stats_path, mode='w', encoding='utf-8') as file:
             # Write header
@@ -2023,11 +2008,11 @@ class LetterboxdScraper:
                         end_idx = min((i + 1) * CHUNK_SIZE, len(top_data))
                         chunk_df = pd.DataFrame(top_data[start_idx:end_idx])
                         chunk_df = chunk_df[['Title', 'Year', 'tmdbID']]
-                        output_path = os.path.join(BASE_DIR, f'{continent.replace(" ", "_").lower()}_top_movies.csv')
+                        output_path = os.path.join(output_dir, f'{continent.replace(" ", "_").lower()}_top_movies.csv')
                         chunk_df.to_csv(output_path, index=False, encoding='utf-8')
 
                     # Save statistics for this continent
-                    stats_path = os.path.join(BASE_DIR, f'stats_{continent.replace(" ", "_").lower()}_top_movies.txt')
+                    stats_path = os.path.join(output_dir, f'stats_{continent.replace(" ", "_").lower()}_top_movies.txt')
                     with open(stats_path, mode='w', encoding='utf-8') as file:
                         file.write(f"<strong>The Top {len(top_data)} Highest Rated Films from {'Australia' if continent == 'Oceania' else continent}</strong>\n\n")
                         file.write(f"<strong>Last updated: {formatted_date}</strong>\n\n")
@@ -2088,7 +2073,7 @@ class LetterboxdScraper:
                     })
 
         # Save unfiltered approved data (append mode)
-        approved_path = os.path.join(BASE_DIR, 'unfiltered_approved.csv')
+        approved_path = os.path.join(output_dir, 'unfiltered_approved.csv')
         with open(approved_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             for movie in self.processor.unfiltered_approved:
@@ -2099,7 +2084,7 @@ class LetterboxdScraper:
                     print_to_csv(f"Warning: Movie data incomplete for {movie[0] if movie else 'Unknown'}")
 
         # Save unfiltered denied data (append mode)
-        denied_path = os.path.join(BASE_DIR, 'unfiltered_denied.csv')
+        denied_path = os.path.join(output_dir, 'unfiltered_denied.csv')
         with open(denied_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             for movie in self.processor.unfiltered_denied:
@@ -2218,7 +2203,7 @@ class LetterboxdScraper:
                     end_idx = min((i + 1) * CHUNK_SIZE, len(top_data))
                     chunk_df = pd.DataFrame(top_data[start_idx:end_idx])
                     chunk_df = chunk_df[['Title', 'Year', 'tmdbID']]
-                    output_path = os.path.join(BASE_DIR, f'{category}_top_movies.csv')
+                    output_path = os.path.join(output_dir, f'{category}_top_movies.csv')
                     chunk_df.to_csv(output_path, index=False, encoding='utf-8')
 
                 def get_ordinal(n):
@@ -2232,7 +2217,7 @@ class LetterboxdScraper:
                 formatted_date = current_date.strftime('%B ') + get_ordinal(current_date.day) + f", {current_date.year}"
 
                 # Save statistics for this category
-                stats_path = os.path.join(BASE_DIR, f'stats_{category}_top_movies.txt')
+                stats_path = os.path.join(output_dir, f'stats_{category}_top_movies.txt')
                 with open(stats_path, mode='w', encoding='utf-8') as file:
                     # Format the category name for display
                     display_category = category.replace('_', ' ').replace('Minutes', 'minutes')
@@ -2283,7 +2268,7 @@ class LetterboxdScraper:
 
     def log_error_to_csv(self, error_message: str):
         """Log error messages to update_results.csv."""
-        error_path = os.path.join(BASE_DIR, 'update_results.csv')
+        error_path = os.path.join(output_dir, 'update_results.csv')
         with open(error_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(['Error Type', 'Error Message'])

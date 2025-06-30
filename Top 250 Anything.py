@@ -38,17 +38,13 @@ def get_os_specific_paths():
 # Get OS-specific paths
 paths = get_os_specific_paths()
 EXCEL_PATH = paths['excel_path']
-OUTPUT_DIR = paths['output_dir']
+output_dir = paths['output_dir']
 
 # Define a custom print function
 def print_to_csv(message: str):
     """Prints a message to the terminal and appends it to All_Outputs.csv."""
     print(message)  # Print to terminal
-    
-    # Ensure output directory exists
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
-    with open(os.path.join(OUTPUT_DIR, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
+    with open(os.path.join(output_dir, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([message])  # Write the message as a new row
 
@@ -340,6 +336,6 @@ else:
 
 # Create a DataFrame and save to CSV if desired
 df = pd.DataFrame(film_titles)
-output_csv = os.path.join(OUTPUT_DIR, 'film_titles.csv')
+output_csv = os.path.join(output_dir, 'film_titles.csv')
 df.to_csv(output_csv, index=False, encoding='utf-8')
 print_to_csv("Film titles have been successfully saved to film_titles.csv.")
