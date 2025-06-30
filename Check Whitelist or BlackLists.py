@@ -3,8 +3,31 @@ import requests
 from bs4 import BeautifulSoup
 import difflib
 import unicodedata
+import os
+import platform
 
-WHITELIST_PATH = r'C:\\Users\\bigba\\aa Personal Projects\\Letterboxd List Scraping\\Whitelist.xlsx'
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        whitelist_path = os.path.join(base_dir, 'whitelist.xlsx')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        whitelist_path = os.path.join(base_dir, 'whitelist.xlsx')
+    
+    return {
+        'base_dir': base_dir,
+        'whitelist_path': whitelist_path
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+WHITELIST_PATH = paths['whitelist_path']
 
 def get_movie_info(letterboxd_url):
     response = requests.get(letterboxd_url)

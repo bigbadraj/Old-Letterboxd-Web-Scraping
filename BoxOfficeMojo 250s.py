@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import csv
 import os
+import platform
 
 # Define a custom print function
 def print_to_csv(message: str):
@@ -11,8 +12,30 @@ def print_to_csv(message: str):
         writer = csv.writer(file)
         writer.writerow([message])  # Write the message as a new row
 
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    
+    return {
+        'base_dir': base_dir,
+        'output_dir': output_dir
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+output_dir = paths['output_dir']
+
 def scrape_movies(urls, output_filename):
-    output_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs'
     os.makedirs(output_dir, exist_ok=True)
     output_file = os.path.join(output_dir, output_filename)
 

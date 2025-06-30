@@ -11,6 +11,7 @@ import re
 import csv
 import locale
 import os
+import platform
 from datetime import datetime
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
@@ -23,11 +24,39 @@ from selenium.webdriver.support import expected_conditions as EC
 import json
 from selenium.common.exceptions import NoSuchElementException
 
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    
+    return {
+        'base_dir': base_dir,
+        'output_dir': output_dir
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+BASE_DIR = paths['output_dir']
+LIST_DIR = paths['base_dir']
+
 # Define a custom print function
 def print_to_csv(message: str):
     """Prints a message to the terminal and appends it to All_Outputs.csv."""
     print(message)  # Print to terminal
-    with open('Outputs/All_Outputs.csv', mode='a', newline='', encoding='utf-8') as file:
+    
+    # Ensure output directory exists
+    os.makedirs(BASE_DIR, exist_ok=True)
+    
+    with open(os.path.join(BASE_DIR, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([message])  # Write the message as a new row
 
@@ -43,8 +72,6 @@ RETRY_DELAY = 15
 CHUNK_SIZE = 1900
 
 # File paths
-BASE_DIR = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs'
-LIST_DIR = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
 BLACKLIST_PATH = os.path.join(LIST_DIR, 'blacklist.xlsx')
 WHITELIST_PATH = os.path.join(LIST_DIR, 'whitelist.xlsx')
 INCOMPLETE_STATS_WHITELIST_PATH = os.path.join(LIST_DIR, 'Incomplete_Stats_Whitelist.xlsx')

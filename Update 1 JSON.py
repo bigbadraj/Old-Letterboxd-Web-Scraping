@@ -11,6 +11,30 @@ import time
 from github import Github
 import os
 from datetime import datetime
+import platform
+
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        jsons_dir = os.path.join(base_dir, 'JSONs')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        jsons_dir = os.path.join(base_dir, 'JSONs')
+    
+    return {
+        'base_dir': base_dir,
+        'jsons_dir': jsons_dir
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+jsons_dir = paths['jsons_dir']
 
 # Thread-safe list for storing movie data
 class ThreadSafeList:
@@ -220,7 +244,7 @@ def main():
     if choice in ["1", "2"]:
         base_url = input("Enter the Letterboxd list URL: ").strip()
         list_name = base_url.rstrip('/').split('/')[-1]
-        output_json = fr'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\JSONs\film_titles_{list_name}.json'
+        output_json = os.path.join(jsons_dir, f'film_titles_{list_name}.json')
         
         session = create_session()
         total_films = get_list_size(session, base_url)
@@ -252,7 +276,7 @@ def process_single_list(base_url, output_json, progress_tracker, max_films=None,
         while True:
             page_url = f"{base_url}page/{current_page}/" if current_page > 1 else base_url
             print(f"\n{f' Page {current_page}/{total_pages} ':=^100}")
-            has_next, page_data = process_page(session, page_url, max_films, progress_tracker)
+            has_next, page_data = process_page(session, page_url, progress_tracker)
             
             if page_data:
                 all_data.extend(page_data)

@@ -3,6 +3,41 @@ from bs4 import BeautifulSoup
 import json
 import time
 import csv
+import random
+from selenium import webdriver
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import pandas as pd
+import re
+import os
+import platform
+from tqdm import tqdm
+
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    
+    return {
+        'base_dir': base_dir,
+        'output_dir': output_dir
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+output_dir = paths['output_dir']
 
 # Define a custom print function
 def print_to_csv(message: str):
@@ -148,7 +183,7 @@ def main():
     
     # Save to CSV maintaining original order
     list_name = "stand_up_comedy"  # You can modify this based on your list
-    filepath = fr'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs\{list_name}.csv'
+    filepath = os.path.join(output_dir, f"{list_name}.csv")
     
     # Write to CSV
     with open(filepath, 'w', newline='', encoding='utf-8') as f:

@@ -6,6 +6,42 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import threading
+import time
+import random
+from selenium import webdriver
+from selenium.webdriver.firefox.service import Service
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import re
+import os
+import platform
+from tqdm import tqdm
+import csv
+
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        output_dir = os.path.join(base_dir, 'Outputs')
+    
+    return {
+        'base_dir': base_dir,
+        'output_dir': output_dir
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+output_dir = paths['output_dir']
 
 # Thread-safe list for storing movie data
 class ThreadSafeList:
@@ -114,7 +150,7 @@ def main():
         page += 1
     
     df = pd.DataFrame(movies_data.items)
-    output_csv = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs\film_titles.csv'
+    output_csv = os.path.join(output_dir, 'film_titles.csv')
     df.to_csv(output_csv, index=False)
     print(f"\nScraping complete. {len(movies_data)} films saved to {output_csv}")
 

@@ -9,17 +9,46 @@ from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd
 import re
 import os
+import platform
 from tqdm import tqdm
 import csv
 
-# Define paths
-EXCEL_PATH = os.path.join(r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping', 'top_250_data.xlsx')
+# Detect operating system and set appropriate paths
+def get_os_specific_paths():
+    """Return OS-specific file paths."""
+    system = platform.system()
+    
+    if system == "Windows":
+        # Windows paths
+        base_dir = r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping'
+        excel_path = os.path.join(base_dir, 'top_250_data.xlsx')
+        output_dir = os.path.join(base_dir, 'Outputs')
+    elif system == "Darwin":  # macOS
+        # macOS paths
+        base_dir = '/Users/calebcollins/Documents/Letterboxd List Scraping'
+        excel_path = os.path.join(base_dir, 'top_250_data.xlsx')
+        output_dir = os.path.join(base_dir, 'Outputs')
+    
+    return {
+        'excel_path': excel_path,
+        'output_dir': output_dir,
+        'base_dir': base_dir
+    }
+
+# Get OS-specific paths
+paths = get_os_specific_paths()
+EXCEL_PATH = paths['excel_path']
+OUTPUT_DIR = paths['output_dir']
 
 # Define a custom print function
 def print_to_csv(message: str):
     """Prints a message to the terminal and appends it to All_Outputs.csv."""
     print(message)  # Print to terminal
-    with open('Outputs/All_Outputs.csv', mode='a', newline='', encoding='utf-8') as file:
+    
+    # Ensure output directory exists
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    
+    with open(os.path.join(OUTPUT_DIR, 'All_Outputs.csv'), mode='a', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         writer.writerow([message])  # Write the message as a new row
 
@@ -311,6 +340,6 @@ else:
 
 # Create a DataFrame and save to CSV if desired
 df = pd.DataFrame(film_titles)
-output_csv = os.path.join(r'C:\Users\bigba\aa Personal Projects\Letterboxd List Scraping\Outputs', 'film_titles.csv')
+output_csv = os.path.join(OUTPUT_DIR, 'film_titles.csv')
 df.to_csv(output_csv, index=False, encoding='utf-8')
 print_to_csv("Film titles have been successfully saved to film_titles.csv.")
