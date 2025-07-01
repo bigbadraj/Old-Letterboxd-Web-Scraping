@@ -1506,12 +1506,14 @@ class LetterboxdScraper:
                                         release_year = release_year_content.split('(')[-1].strip(')')
                                 except Exception:
                                     release_year = None
+                            print_to_csv(f"📊 {film_title} has no reviews. Adding to zero reviews list.")
                             self.processor.add_to_zero_reviews(film_title, release_year, film_url)
                             self.processor.rejected_data.append([film_title, release_year, None, 'Zero reviews'])
                             self.rejected_movies_count += 1
                             break  # Skip to next movie
                         elif rating_count < MIN_RATING_COUNT:
                             # Not enough reviews, skip immediately
+                            print_to_csv(f"❌ {film_title} was not added due to insufficient ratings: {rating_count} ratings.")
                             self.processor.rejected_data.append([film_title, release_year, None, 'Insufficient ratings (< 1000)'])
                             self.rejected_movies_count += 1
                             break  # Skip to next movie
