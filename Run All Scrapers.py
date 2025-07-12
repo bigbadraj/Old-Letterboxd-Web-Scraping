@@ -104,8 +104,8 @@ def main():
         ("BoxOfficeMojo 250s.py", "Box Office Mojo Scraper"),
         ("Top 250 Anything.py", "Letterboxd Min Filtering Scraper"),
         ("Comedy 100.py", "Letterboxd Comedy List Scraper"),
-        ("Popular 2500.py", "Letterboxd Popular Films Scraper"),
-        ("Rating 2500.py", "Letterboxd Rating Films Scraper"),
+        ("Popular 5000.py", "Letterboxd Popular Films Scraper"),
+        ("Rating 5000.py", "Letterboxd Rating Films Scraper"),
         ("Genre 250s.py", "Top 250 Genres Scraper"),
         ("Update Letterboxd Lists.py", "Update Lists on Letterboxd"),
     ]
