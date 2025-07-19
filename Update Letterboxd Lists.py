@@ -613,33 +613,33 @@ def update_letterboxd_lists():
                 log_and_print("✅ Clicking the Import button for the third time.")
                 import_button = driver.find_element(By.CSS_SELECTOR, ".list-import-link")
                 import_button.click()
-                time.sleep(2)  
+                time.sleep(10)  
 
                 # Step 14: Import the third CSV file
                 log_and_print("✅ Importing the third CSV file.")
                 csv_file_name = details["csv_file_name_3"]  
                 log_and_print(f"✅ Selecting CSV file: {csv_file_name}")
-                time.sleep(1)  
+                time.sleep(5)  
 
                 # Use Alt + D to focus on the address bar of the file dialog
                 pyautogui.hotkey('alt', 'd')
-                time.sleep(1)
+                time.sleep(5)
 
                 # Type the path to the Outputs folder
                 pyautogui.typewrite(output_dir, interval=0.1)
                 pyautogui.press('enter')  
-                time.sleep(1) 
+                time.sleep(5) 
 
                 # Click into the search field of the Outputs folder
                 pyautogui.click(x=300, y=200)  
-                time.sleep(1) 
+                time.sleep(5) 
 
                 # Select the correct CSV file
                 pyautogui.typewrite(csv_file_name, interval=0.1)
-                time.sleep(1)  
+                time.sleep(5)  
                 pyautogui.press('enter')  
 
-                time.sleep(30)  
+                time.sleep(45)  
 
                 # Step 15: Click the "Hide Successful Matches" button again
                 try:
@@ -649,24 +649,34 @@ def update_letterboxd_lists():
                 except Exception as e:
                     log_and_print(f"❌ Failed to click the handle: {str(e)}")
 
-                time.sleep(7)
+                time.sleep(10)
 
                 # Step 16: Click the "Add films to list" button again
                 log_and_print("✅ Clicking the 'Add films to list' button.")
                 add_films_button = driver.find_element(By.CSS_SELECTOR, ".add-import-films-to-list")
                 add_films_button.click()
-                time.sleep(5)  
+                time.sleep(10)  
 
                 # Step 17: Save the changes for the third import
-                time.sleep(1)
+                time.sleep(5)
                 log_and_print("✅ Saving the changes for the third import.")
                 driver.find_element(By.ID, "list-edit-save").click()
-                time.sleep(15)  
+                time.sleep(20)  
 
                 log_and_print(f"✅ Successfully updated special list: {list_name}")
+                # Append success result for special list
+                results.append({
+                    'list_name': list_name,
+                    'status': 'Successfully updated'
+                })
 
             except Exception as e:
                 log_and_print(f"❌ Failed to update special list: {list_name}. Error: {str(e)}")
+                # Append failure result for special list
+                results.append({
+                    'list_name': list_name,
+                    'status': f'Failed to update: {str(e)}'
+                })
                 continue  
 
     except Exception as e:
