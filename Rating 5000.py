@@ -139,7 +139,7 @@ CONTINENTS_COUNTRIES = {
     'Africa': ['Ivory Coast', 'Algeria', 'Angola', 'Benin', 'Botswana', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cameroon', 'Central African Republic', 'Chad', 'Comoros', 'Congo, Democratic Republic of the', 'Congo, Republic of the', 'Djibouti', 'Egypt', 'Equatorial Guinea', 'Eritrea', 'Eswatini', 'Ethiopia', 'Gabon', 'Gambia', 'Ghana', 'Guinea', 'Guinea-Bissau', 'Kenya', 'Lesotho', 'Liberia', 'Libya', 'Madagascar', 'Malawi', 'Mali', 'Mauritania', 'Mauritius', 'Morocco', 'Mozambique', 'Namibia', 'Niger', 'Nigeria', 'Rwanda', 'Sao Tome and Principe', 'Senegal', 'Seychelles', 'Sierra Leone', 'Somalia', 'South Africa', 'South Sudan', 'Sudan', 'Tanzania', 'Togo', 'Tunisia', 'Uganda', 'Zambia', 'Zimbabwe', 'Congo'],
     'Asia': ['State of Palestine', 'Hong Kong', 'Afghanistan', 'Armenia', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Bhutan', 'Brunei', 'Cambodia', 'China', 'Cyprus', 'Georgia', 'India', 'Indonesia', 'Iran', 'Iraq', 'Israel', 'Japan', 'Jordan', 'Kazakhstan', 'Kuwait', 'Kyrgyzstan', 'Laos', 'Lebanon', 'Malaysia', 'Maldives', 'Mongolia', 'Myanmar', 'Nepal', 'North Korea', 'Oman', 'Pakistan', 'Palestine', 'Philippines', 'Qatar', 'Russia', 'Saudi Arabia', 'Singapore', 'South Korea', 'Sri Lanka', 'Syrian Arab Republic', 'Taiwan', 'Tajikistan', 'Thailand', 'Timor-Leste', 'Turkey', 'Turkmenistan', 'United Arab Emirates', 'Uzbekistan', 'Vietnam', 'Yemen', 'Syria'],
     'Europe': ['East Germany', 'North Macedonia', 'Yugoslavia', 'Serbia and Montenegro', 'Czechoslovakia', 'Czechia', 'USSR', 'Albania', 'Latvia', 'Andorra', 'Liechtenstein', 'Armenia', 'Lithuania', 'Austria', 'Luxembourg', 'Azerbaijan', 'Malta', 'Belarus', 'Moldova', 'Belgium', 'Monaco', 'Bosnia and Herzegovina', 'Montenegro', 'Bulgaria', 'Netherlands', 'Croatia', 'Norway', 'Cyprus', 'Poland', 'Czech Republic', 'Portugal', 'Denmark', 'Romania', 'Estonia', 'Russia', 'Finland', 'San Marino', 'Former Yugoslav Republic of Macedonia', 'Serbia', 'France', 'Slovakia', 'Georgia', 'Slovenia', 'Germany', 'Spain', 'Greece', 'Sweden', 'Hungary', 'Switzerland', 'Iceland', 'Ireland', 'Turkey', 'Italy', 'Ukraine', 'Kosovo', 'UK'],
-    'North America': ['Guadeloupe', 'Cuba', 'The Bahamas', 'Bermuda', 'Canada', 'The Caribbean', 'Clipperton Island', 'Greenland', 'Mexico', 'Saint Pierre and Miquelon', 'Turks and Caicos Islands', 'USA', 'Belize', 'Costa Rica', 'El Salvador', 'Guatemala', 'Honduras', 'Nicaragua', 'Panama', 'Dominican Republic', 'Haiti', 'Jamaica', 'Martinique', 'Netherlands Antilles', 'Puerto Rico'],
+    'North America': ['Bahamas', 'Guadeloupe', 'Cuba', 'The Bahamas', 'Bermuda', 'Canada', 'The Caribbean', 'Clipperton Island', 'Greenland', 'Mexico', 'Saint Pierre and Miquelon', 'Turks and Caicos Islands', 'USA', 'Belize', 'Costa Rica', 'El Salvador', 'Guatemala', 'Honduras', 'Nicaragua', 'Panama', 'Dominican Republic', 'Haiti', 'Jamaica', 'Martinique', 'Netherlands Antilles', 'Puerto Rico'],
     'Oceania': ['Australia', 'Fiji', 'Kiribati', 'Marshall Islands', 'Micronesia', 'Nauru', 'New Zealand', 'Palau', 'Papua New Guinea', 'Samoa', 'Solomon Islands', 'Tonga', 'Tuvalu', 'Vanuatu', 'French Polynesia'],
     'South America': ['Argentina', 'Bolivia', 'Brazil', 'Chile', 'Colombia', 'Ecuador', 'Guyana', 'Paraguay', 'Peru', 'Suriname', 'Uruguay', 'Bolivarian Republic of Venezuela', 'The Falkland Islands', 'South Georgia and the South Sandwich Islands', 'French Guiana', 'Venezuela'],
 }
@@ -1075,9 +1075,8 @@ def add_to_runtime_stats(category: str, film_title: str, release_year: str, tmdb
     Returns:
         bool: True if the movie was added, False otherwise
     """
-    # Check if movie already exists
-    if any(movie['Title'] == film_title and movie['Year'] == release_year 
-           for movie in runtime_stats[category]['film_data']):
+    # Check if movie already exists by URL
+    if any(movie['Link'] == film_url for movie in runtime_stats[category]['film_data']):
         return False
 
     # Determine the max limit based on the category
@@ -1114,9 +1113,8 @@ def add_to_mpaa_stats(rating: str, film_title: str, release_year: str, tmdb_id: 
     Returns:
         bool: True if the movie was added, False otherwise
     """
-    # Check if movie already exists
-    if any(movie['Title'] == film_title and movie['Year'] == release_year 
-           for movie in mpaa_stats[rating]['film_data']):
+    # Check if movie already exists by URL
+    if any(movie['Link'] == film_url for movie in mpaa_stats[rating]['film_data']):
         return False
 
     # Determine the max limit based on the rating
@@ -1460,8 +1458,8 @@ class LetterboxdScraper:
 
             # Now process each film one by one
             for film_data in film_data_list:
-                if self.valid_movies_count >= MAX_MOVIES:
-                    print_to_csv(f"\nReached the target of {MAX_MOVIES} successful movies. Stopping scraping.")
+                if len(max_movies_5000_stats['film_data']) >= MAX_MOVIES:
+                    print_to_csv(f"✅ {MAX_MOVIES} unique movies successfully added to the main list. Stopping scraping.")
                     return
 
                 film_title = film_data['title']
@@ -1494,6 +1492,10 @@ class LetterboxdScraper:
                 # First check for exact matches in whitelist
                 if whitelist_info:
                     self.process_movie_data(whitelist_info, film_title, film_url)
+                    # Check again after whitelist processing
+                    if len(max_movies_5000_stats['film_data']) >= MAX_MOVIES:
+                        print_to_csv(f"✅ {MAX_MOVIES} unique movies successfully added to the main list. Stopping scraping.")
+                        return
                     continue
                                 
                 # Get initial movie data without full scrape
@@ -1593,6 +1595,10 @@ class LetterboxdScraper:
                         }
                         # Process the movie data
                         self.process_movie_data(movie_data, film_title, film_url)
+                        # Check again after processing
+                        if len(max_movies_5000_stats['film_data']) >= MAX_MOVIES:
+                            print_to_csv(f"✅ {MAX_MOVIES} unique movies successfully added to the main list. Stopping scraping.")
+                            return
                         break  # Break out of retry loop since we successfully processed the movie
                     except Exception as e:
                         if retry == movie_retries - 1:
@@ -1604,6 +1610,26 @@ class LetterboxdScraper:
                             continue
             
             self.page_number += 1
+
+        # FINAL CONTINGENCY: If for any reason we still have fewer than MAX_MOVIES, log and try to fill with more unique movies from unfiltered_approved
+        unique_urls = set(movie['Link'] for movie in max_movies_5000_stats['film_data'])
+        if len(max_movies_5000_stats['film_data']) < MAX_MOVIES:
+            print_to_csv(f"❗ FINAL CONTINGENCY: Only {len(max_movies_5000_stats['film_data'])} unique movies found in the main list after scraping!")
+            for movie in self.processor.unfiltered_approved:
+                if len(max_movies_5000_stats['film_data']) >= MAX_MOVIES:
+                    break
+                url = movie[3] if len(movie) > 3 else None
+                if url and url not in unique_urls:
+                    max_movies_5000_stats['film_data'].append({
+                        'Title': movie[0],
+                        'Year': movie[1],
+                        'tmdbID': movie[2],
+                        'Link': url
+                    })
+                    unique_urls.add(url)
+            print_to_csv(f"After contingency fill, main list now has {len(max_movies_5000_stats['film_data'])} entries.")
+        if len(max_movies_5000_stats['film_data']) < MAX_MOVIES:
+            print_to_csv(f"❌ CRITICAL ERROR: Unable to fill {MAX_MOVIES} unique movies. Only {len(max_movies_5000_stats['film_data'])} present. Please check scraping logic and data sources.")
 
     def process_approved_movie(self, film_title: str, release_year: str, tmdb_id: str, film_url: str, approval_type: str):
         """Process a movie that has been approved."""
@@ -1915,14 +1941,21 @@ class LetterboxdScraper:
 
     def save_max_movies_5000_results(self):
         """Save results for MAX_MOVIES_5000."""
-               
+        
+        # Ensure we only save exactly MAX_MOVIES entries
+        if len(max_movies_5000_stats['film_data']) > MAX_MOVIES:
+            print_to_csv(f"⚠️ WARNING: Found {len(max_movies_5000_stats['film_data'])} entries, truncating to exactly {MAX_MOVIES}")
+            max_movies_5000_stats['film_data'] = max_movies_5000_stats['film_data'][:MAX_MOVIES]
+        elif len(max_movies_5000_stats['film_data']) < MAX_MOVIES:
+            print_to_csv(f"⚠️ WARNING: Only {len(max_movies_5000_stats['film_data'])} entries found, expected {MAX_MOVIES}")
+        
         # Save movie data in chunks
         num_chunks = (len(max_movies_5000_stats['film_data']) + CHUNK_SIZE - 1) // CHUNK_SIZE
         for i in range(num_chunks):
             start_idx = i * CHUNK_SIZE
             end_idx = min((i + 1) * CHUNK_SIZE, len(max_movies_5000_stats['film_data']))
             chunk_df = pd.DataFrame(max_movies_5000_stats['film_data'][start_idx:end_idx])
-            chunk_df = chunk_df[['Title', 'Year', 'tmdbID']]
+            chunk_df = chunk_df[['Title', 'Year', 'tmdbID', 'Link']]
             output_path = os.path.join(output_dir, f'rating_filtered_movie_titles{i+1}.csv')
             chunk_df.to_csv(output_path, index=False, encoding='utf-8')
 
@@ -2153,9 +2186,9 @@ class LetterboxdScraper:
                     writer = csv.writer(file)
                     # Write headers if file is empty
                     if file.tell() == 0:
-                        writer.writerow(['Title', 'Year', 'tmdbID'])
+                        writer.writerow(['Title', 'Year', 'tmdbID', 'Link'])
                     for movie in chunk:
-                        writer.writerow([movie['Title'], movie['Year'], movie['tmdbID']])
+                        writer.writerow([movie['Title'], movie['Year'], movie['tmdbID'], movie['Link']])
 
             def get_ordinal(n):
                 if 10 <= n % 100 <= 20:
@@ -2225,7 +2258,7 @@ class LetterboxdScraper:
                     start_idx = i * CHUNK_SIZE
                     end_idx = min((i + 1) * CHUNK_SIZE, len(top_data))
                     chunk_df = pd.DataFrame(top_data[start_idx:end_idx])
-                    chunk_df = chunk_df[['Title', 'Year', 'tmdbID']]
+                    chunk_df = chunk_df[['Title', 'Year', 'tmdbID', 'Link']]
                     output_path = os.path.join(output_dir, f'{category}_top_movies.csv')
                     chunk_df.to_csv(output_path, index=False, encoding='utf-8')
 
