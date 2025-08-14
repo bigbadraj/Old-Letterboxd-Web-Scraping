@@ -97,17 +97,16 @@ def process_film(session, film_url, progress_tracker, list_number=None):
             sleep(1)
     return None
 
-def process_page(session, url, progress_tracker):
+def process_page(session, url, max_films, progress_tracker):
     try:
         response = session.get(url, timeout=10)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Try both ranked and unranked list classes
-        film_list = soup.find('ul', class_='js-list-entries poster-list -p125 -grid film-list') or \
-                   soup.find('ul', class_='poster-list -p125 -grid film-list')
-        
+        # Updated selector
+        film_list = soup.find('ul', class_='poster-list')
+
         if not film_list:
             print("Film list not found on page.")
             return False, []
@@ -159,8 +158,8 @@ def get_list_size(session, base_url):
                 return int(number_str.replace(',', ''))
         
         # Fallback to calculating from page count if meta description fails
-        film_list = soup.find('ul', class_='js-list-entries poster-list -p125 -grid film-list') or \
-                   soup.find('ul', class_='poster-list -p125 -grid film-list')
+        film_list = soup.find('ul', class_='poster-list') or \
+                   soup.find('div', class_='poster-list') # Added div as fallback
         
         films_per_page = len(film_list.find_all('li', class_='poster-container')) if film_list else 0
         pagination = soup.find_all('li', class_='paginate-page')
@@ -280,7 +279,7 @@ def process_single_list(base_url, output_json, progress_tracker, max_films=None,
         while True:
             page_url = f"{base_url}page/{current_page}/" if current_page > 1 else base_url
             print(f"\n{f' Page {current_page}/{total_pages} ':=^100}")
-            has_next, page_data = process_page(session, page_url, progress_tracker)
+            has_next, page_data = process_page(session, page_url, max_films, progress_tracker)
             
             if page_data:
                 all_data.extend(page_data)

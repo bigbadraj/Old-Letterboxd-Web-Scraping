@@ -365,6 +365,7 @@ def main():
         {"url": "https://letterboxd.com/bigbadraj/list/the-top-250-most-popular-films-of-120-minutes/"},
         {"url": "https://letterboxd.com/bigbadraj/list/the-top-75-most-popular-films-of-180-minutes/"},
         {"url": "https://letterboxd.com/bigbadraj/list/the-top-5-most-popular-films-of-240-minutes/"},
+        {"url": "https://letterboxd.com/brsan/list/letterboxds-top-100-silent-films/"},
     ]
     
     # Calculate total films across all relevant lists

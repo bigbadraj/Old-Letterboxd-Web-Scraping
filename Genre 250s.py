@@ -1565,10 +1565,13 @@ class LetterboxdScraper:
         approved_path = os.path.join(BASE_DIR, 'unfiltered_approved.csv')
         with open(approved_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
+            # Write header if file is empty
+            if file.tell() == 0:
+                writer.writerow(['Title', 'Year', 'Blank', 'URL', f'{genre.capitalize()} Top'])
             for movie in self.processor.unfiltered_approved:
-                # Ensure we have all fields including TMDB ID
-                if len(movie) >= 3:  # Make sure we have at least title, year, and tmdb_id
-                    writer.writerow(movie + [f"{genre.capitalize()}"])
+                # Ensure we have at least title, year, and URL
+                if len(movie) >= 4:
+                    writer.writerow([movie[0], movie[1], '', movie[3], f'{genre.capitalize()} Top'])
                 else:
                     print_to_csv(f"Warning: Movie data incomplete for {movie[0] if movie else 'Unknown'}")
 
@@ -1576,8 +1579,14 @@ class LetterboxdScraper:
         denied_path = os.path.join(BASE_DIR, 'unfiltered_denied.csv')
         with open(denied_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
+            # Write header if file is empty
+            if file.tell() == 0:
+                writer.writerow(['Title', 'Year', 'Blank', 'URL', f'{genre.capitalize()} Top'])
             for movie in self.processor.unfiltered_denied:
-                writer.writerow(movie + [f"{genre.capitalize()}"])
+                if len(movie) >= 4:
+                    writer.writerow([movie[0], movie[1], '', movie[3], f'{genre.capitalize()} Top'])
+                else:
+                    print_to_csv(f"Warning: Movie data incomplete for {movie[0] if movie else 'Unknown'}")
 
         # Save MAX_MOVIES results
         self.save_MAX_MOVIES_results(genre, sort_type)
@@ -1648,10 +1657,13 @@ class LetterboxdScraper:
         approved_path = os.path.join(BASE_DIR, 'unfiltered_approved.csv')
         with open(approved_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
+            # Write header if file is empty
+            if file.tell() == 0:
+                writer.writerow(['Title', 'Year', 'Blank', 'URL', 'Emergency'])
             for movie in self.processor.unfiltered_approved:
-                # Ensure we have all fields including TMDB ID
-                if len(movie) >= 3:  # Make sure we have at least title, year, and tmdb_id
-                    writer.writerow(movie + ["Emergency"])
+                # Ensure we have at least title, year, and URL
+                if len(movie) >= 4:
+                    writer.writerow([movie[0], movie[1], '', movie[3], 'Emergency'])
                 else:
                     print_to_csv(f"Warning: Movie data incomplete for {movie[0] if movie else 'Unknown'}")
 
@@ -1659,8 +1671,14 @@ class LetterboxdScraper:
         denied_path = os.path.join(BASE_DIR, 'unfiltered_denied.csv')
         with open(denied_path, mode='a', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
+            # Write header if file is empty
+            if file.tell() == 0:
+                writer.writerow(['Title', 'Year', 'Blank', 'URL', 'Emergency'])
             for movie in self.processor.unfiltered_denied:
-                writer.writerow(movie + ["Emergency"])
+                if len(movie) >= 4:
+                    writer.writerow([movie[0], movie[1], '', movie[3], 'Emergency'])
+                else:
+                    print_to_csv(f"Warning: Movie data incomplete for {movie[0] if movie else 'Unknown'}")
 
 def main():
     genres = ["action", "adventure", "animation", "comedy", "crime", "drama", "family", "fantasy", "history", "horror", "music", "mystery", "romance", "science-fiction", "thriller", "war", "western"]  # List of genres to iterate through
