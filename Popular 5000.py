@@ -1167,11 +1167,7 @@ class LetterboxdScraper:
             if self.processor.is_whitelisted(None, None, film_url):
                 # If in incomplete stats whitelist, skip all refreshes
                 if self.processor.is_incomplete_stats_whitelisted(film_title, release_year, film_url):
-                    # Check if we've reached the limit BEFORE processing
-                    if len(max_movies_5000_stats['film_data']) >= MAX_MOVIES_5000:
-                        print_to_csv(f"⚠️ {film_title} would be the {len(max_movies_5000_stats['film_data']) + 1}th movie, but we've reached the limit of {MAX_MOVIES_5000}")
-                        return True
-                    
+                    # Process the whitelist information regardless of MAX_MOVIES_5000 limit
                     self.processor.process_whitelist_info(info, film_url)
                     self.valid_movies_count += 1
                     print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
@@ -1341,12 +1337,7 @@ class LetterboxdScraper:
                         self.processor.rejected_data.append([film_title, release_year, None, f'Error collecting data: {str(e)}'])
                         return False
                 
-                # Check if we've reached the limit BEFORE processing
-                if len(max_movies_5000_stats['film_data']) >= MAX_MOVIES_5000:
-                    print_to_csv(f"⚠️ {film_title} would be the {len(max_movies_5000_stats['film_data']) + 1}th movie, but we've reached the limit of {MAX_MOVIES_5000}")
-                    return True
-                
-                # Process the whitelist information
+                # Process the whitelist information regardless of MAX_MOVIES_5000 limit
                 self.processor.process_whitelist_info(info, film_url)
                 self.valid_movies_count += 1
                 print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")
@@ -1606,7 +1597,10 @@ class LetterboxdScraper:
                         }
                         # Process the movie data
                         self.process_movie_data(movie_data, film_title, film_url)
-                        return
+                        # Check again after processing
+                        if self.valid_movies_count >= MAX_MOVIES:
+                            print_to_csv(f"✅ {MAX_MOVIES} unique movies successfully scraped. Stopping scraping.")
+                            return
                         break  # Break out of retry loop since we successfully processed the movie
                     except Exception as e:
                         if retry == movie_retries - 1:
@@ -1724,11 +1718,6 @@ class LetterboxdScraper:
                 return
 
             # If we reach here, the movie is approved
-            # Check if we've reached the limit BEFORE incrementing counters
-            if len(max_movies_5000_stats['film_data']) >= MAX_MOVIES_5000:
-                print_to_csv(f"⚠️ {film_title} would be the {len(max_movies_5000_stats['film_data']) + 1}th movie, but we've reached the limit of {MAX_MOVIES_5000}")
-                return
-            
             self.valid_movies_count += 1
             print_to_csv(f"✅ {film_title} was approved ({self.valid_movies_count}/{MAX_MOVIES})")
             
@@ -1743,15 +1732,18 @@ class LetterboxdScraper:
                 'Link': film_url
             })
 
-            # Add to max_movies_5000_stats (we know we haven't reached the limit)
-            max_movies_5000_stats['film_data'].append({
-                'Title': film_title,
-                'Year': release_year,
-                'tmdbID': tmdb_id,
-                'Link': film_url
-            })
-            # Update statistics for this movie
-            self.update_max_movies_5000_statistics(film_title, release_year, tmdb_id, self.driver, film_url)
+            # Add to max_movies_5000_stats only if we haven't reached the limit
+            if len(max_movies_5000_stats['film_data']) < MAX_MOVIES_5000:
+                max_movies_5000_stats['film_data'].append({
+                    'Title': film_title,
+                    'Year': release_year,
+                    'tmdbID': tmdb_id,
+                    'Link': film_url
+                })
+                # Update statistics for this movie
+                self.update_max_movies_5000_statistics(film_title, release_year, tmdb_id, self.driver, film_url)
+            else:
+                print_to_csv(f"⚠️ {film_title} would be the {len(max_movies_5000_stats['film_data']) + 1}th movie, but we've reached the limit of {MAX_MOVIES_5000}")
 
             # Add to MPAA stats if applicable
             mpaa_rating = extract_mpaa_rating(self.driver)
@@ -2331,11 +2323,6 @@ class LetterboxdScraper:
                     print_to_csv(f"📝 Successfully updated whitelist data for {film_title}")
                     # Process through all output channels
                     self.processor.process_whitelist_info(movie_data, film_url)
-                    
-                    # Check if we've reached the limit BEFORE incrementing
-                    if len(max_movies_5000_stats['film_data']) >= MAX_MOVIES_5000:
-                        print_to_csv(f"⚠️ {film_title} would be the {len(max_movies_5000_stats['film_data']) + 1}th movie, but we've reached the limit of {MAX_MOVIES_5000}")
-                        return movie_data
                     
                     self.valid_movies_count += 1
                     print_to_csv(f"✅ Processed whitelist data for {film_title} ({self.valid_movies_count}/{MAX_MOVIES})")

@@ -605,7 +605,7 @@ def update_letterboxd_lists():
 
                 # Step 12: Save the changes for the second import
                 time.sleep(1)
-                log_and_print("✅ Saving the changes for the third import.")
+                log_and_print("✅ Saving the changes for the second import.")
                 driver.find_element(By.ID, "list-edit-save").click()
                 time.sleep(25)  
 
