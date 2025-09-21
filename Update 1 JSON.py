@@ -85,7 +85,17 @@ def process_film(session, film_url, progress_tracker, list_number=None):
                     title = title_text
                 
                 film_poster_div = film_soup.find('div', class_='film-poster')
-                film_id = film_poster_div.get('data-film-id') if film_poster_div else "Unknown"
+                film_id = film_poster_div.get('data-film-id') if film_poster_div else None
+                
+                # If we couldn't get the film ID from the poster, extract it from the URL
+                if not film_id and film_url and '/film/' in film_url:
+                    film_slug = film_url.split('/film/')[1].rstrip('/')
+                    if film_slug:
+                        film_id = film_slug
+                
+                # If we still don't have an ID, set it to Unknown
+                if not film_id:
+                    film_id = "Unknown"
                 
                 current = progress_tracker.increment()
                 print(f"✅ {title_text} - Added ({current}/{progress_tracker.total_films})")
@@ -114,21 +124,63 @@ def process_page(session, url, max_films, progress_tracker):
         temp_data = []
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = []
-            for li in film_list.find_all('li', class_='poster-container'):
-                film_poster = li.find('div', class_='film-poster')
-                if not film_poster:
-                    print("Film poster not found for one item; skipping.")
+            # Look for the new posteritem structure
+            for li in film_list.find_all('li', class_='posteritem'):
+                # Extract movie information from the inner div with data attributes
+                # The data attributes are on the inner div, not the li element
+                inner_div = li.find('div', class_='react-component')
+                if inner_div:
+                    film_url = inner_div.get('data-target-link') or inner_div.get('data-item-link')
+                else:
+                    film_url = None
+                
+                if not film_url:
+                    # Fallback: look for anchor tag
+                    anchor = li.find('a', href=True)
+                    if anchor:
+                        film_url = anchor['href']
+                
+                # Additional fallback: look for any link with /film/ in it
+                if not film_url:
+                    film_link = li.find('a', href=lambda x: x and '/film/' in x)
+                    if film_link:
+                        film_url = film_link['href']
+                
+                if not film_url:
+                    print("Film URL not found for one item; skipping.")
                     continue
-                    
-                film_url = film_poster.get('data-target-link')
+                
+                # Get list number from the p.list-number element
                 list_number_tag = li.find('p', class_='list-number')
-                
-                # Only get list_number if the tag exists; otherwise, it is unranked
                 list_number = int(list_number_tag.text.strip()) if list_number_tag else None
-                # uncomment for more details print(f"Processing film URL: {film_url}, List Number: {list_number}")
                 
-                # Process film regardless of whether there's a list number
-                if film_url:
+                # Extract title and year from data attributes if available
+                # The data attributes are on the inner div, not the li element
+                if inner_div:
+                    film_title = inner_div.get('data-item-full-display-name') or inner_div.get('data-item-name')
+                else:
+                    film_title = None
+                
+                if film_title and '(' in film_title and ')' in film_title:
+                    # Extract year and title from the full display name
+                    year = film_title[film_title.rindex('(')+1:film_title.rindex(')')]
+                    title = film_title[:film_title.rindex('(')].strip()
+                    
+                    # Extract film ID from the URL
+                    film_id = "Unknown"
+                    if film_url and '/film/' in film_url:
+                        # Extract the film slug from the URL (e.g., /film/citizen-kane/ -> citizen-kane)
+                        film_slug = film_url.split('/film/')[1].rstrip('/')
+                        if film_slug:
+                            film_id = film_slug
+                    
+                    # If we have the title and year, we can skip the individual film processing
+                    # and just add it directly to avoid extra API calls
+                    current = progress_tracker.increment()
+                    print(f"✅ {film_title} - Added ({current}/{progress_tracker.total_films})")
+                    temp_data.append({'ListNumber': list_number, 'Title': title, 'Year': year, 'ID': film_id} if list_number is not None else {'Title': title, 'Year': year, 'ID': film_id})
+                else:
+                    # Fallback to processing individual film page
                     futures.append(executor.submit(process_film, session, film_url, progress_tracker, list_number))
             
             for future in as_completed(futures):
@@ -161,7 +213,7 @@ def get_list_size(session, base_url):
         film_list = soup.find('ul', class_='poster-list') or \
                    soup.find('div', class_='poster-list') # Added div as fallback
         
-        films_per_page = len(film_list.find_all('li', class_='poster-container')) if film_list else 0
+        films_per_page = len(film_list.find_all('li', class_='posteritem')) if film_list else 0
         pagination = soup.find_all('li', class_='paginate-page')
         total_pages = int(pagination[-1].text) if pagination else 1
         
